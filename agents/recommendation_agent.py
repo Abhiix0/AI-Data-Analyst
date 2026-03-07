@@ -1,8 +1,36 @@
-"""Recommendation Agent — generates actionable suggestions based on analysis results."""
+"""Recommendation Agent (LLM-Powered) — generates strategic recommendations using local LLM via Ollama."""
+
+import json
+
+try:
+    import ollama
+    OLLAMA_AVAILABLE = True
+except ImportError:
+    OLLAMA_AVAILABLE = False
+    print("⚠️ Warning: ollama package not installed. Falling back to rule-based recommendations.")
 
 
 class RecommendationAgent:
-    """Produces actionable recommendations from insights, patterns, and outliers."""
+    """Generates strategic, actionable recommendations using LLM reasoning."""
+
+    def __init__(self, model: str = "llama3", use_llm: bool = True):
+        """Initialize the Recommendation Agent.
+        
+        Args:
+            model: Name of the Ollama model to use (default: llama3)
+            use_llm: Whether to use LLM or fall back to rule-based (default: True)
+        """
+        self.model = model
+        self.use_llm = use_llm and OLLAMA_AVAILABLE
+        
+        if self.use_llm:
+            # Test if Ollama is running and model is available
+            try:
+                ollama.list()
+                print(f"[Recommendation Agent] Using LLM: {self.model}")
+            except Exception as e:
+                print(f"⚠️ Warning: Ollama not available ({e}). Falling back to rule-based recommendations.")
+                self.use_llm = False
 
     def run(self, profile: dict, patterns: dict, outliers: dict, insights: list[str]) -> list[str]:
         """Generate recommendations.
@@ -16,10 +44,214 @@ class RecommendationAgent:
         Returns:
             List of recommendation strings.
         """
-        print("[Recommendation Agent] Generating recommendations...")
+        if self.use_llm:
+            return self._generate_llm_recommendations(profile, patterns, outliers, insights)
+        else:
+            return self._generate_rule_based_recommendations(profile, patterns, outliers, insights)
+
+    def _generate_llm_recommendations(self, profile: dict, patterns: dict, outliers: dict, insights: list[str]) -> list[str]:
+        """Generate recommendations using LLM reasoning.
+        
+        Args:
+            profile: Profiling results
+            patterns: Pattern detection results
+            outliers: Outlier detection results
+            insights: Generated insights from Insight Agent
+            
+        Returns:
+            List of recommendation strings
+        """
+        print("[Recommendation Agent - LLM] Generating AI-powered recommendations...")
+        
+        # Build structured summary for LLM
+        summary = self._build_recommendation_context(profile, patterns, outliers, insights)
+        
+        # Create prompt for LLM
+        prompt = self._create_recommendation_prompt(summary)
+        
+        try:
+            # Call Ollama LLM
+            response = ollama.chat(
+                model=self.model,
+                messages=[
+                    {
+                        'role': 'system',
+                        'content': 'You are a senior data analyst and business strategist with expertise in data quality, feature engineering, and business intelligence. Provide clear, actionable recommendations that drive business value.'
+                    },
+                    {
+                        'role': 'user',
+                        'content': prompt
+                    }
+                ]
+            )
+            
+            # Extract recommendations from response
+            recommendations_text = response['message']['content']
+            recommendations = self._parse_llm_response(recommendations_text)
+            
+            print(f"[Recommendation Agent - LLM] Generated {len(recommendations)} AI-powered recommendations")
+            return recommendations
+            
+        except Exception as e:
+            print(f"⚠️ LLM generation failed: {e}")
+            print("[Recommendation Agent] Falling back to rule-based recommendations...")
+            return self._generate_rule_based_recommendations(profile, patterns, outliers, insights)
+
+    def _build_recommendation_context(self, profile: dict, patterns: dict, outliers: dict, insights: list[str]) -> dict:
+        """Build a structured context for recommendation generation.
+        
+        Args:
+            profile: Profiling results
+            patterns: Pattern detection results
+            outliers: Outlier detection results
+            insights: Generated insights
+            
+        Returns:
+            Dictionary with recommendation context
+        """
+        context = {
+            "dataset_size": {
+                "rows": profile["shape"]["rows"],
+                "columns": profile["shape"]["columns"]
+            },
+            "data_quality": {
+                "missing_values": {
+                    col: {
+                        "count": profile["missing_values"][col],
+                        "percentage": profile["missing_percentage"][col]
+                    }
+                    for col in profile["missing_values"]
+                    if profile["missing_values"][col] > 0
+                },
+                "duplicate_rows": profile["duplicate_rows"]
+            },
+            "column_info": {
+                "numeric_columns": list(profile.get("numeric_stats", {}).keys()),
+                "categorical_columns": list(profile.get("categorical_summary", {}).keys()),
+                "column_types": profile["dtypes"]
+            },
+            "patterns": {
+                "strong_correlations": patterns.get("strong_correlations", []),
+                "trends": patterns.get("column_trends", [])
+            },
+            "outliers": outliers,
+            "insights": insights[:10]  # Limit to first 10 insights
+        }
+        
+        return context
+
+    def _create_recommendation_prompt(self, context: dict) -> str:
+        """Create a detailed prompt for the LLM.
+        
+        Args:
+            context: Recommendation context dictionary
+            
+        Returns:
+            Formatted prompt string
+        """
+        prompt = f"""Based on the following dataset analysis, provide strategic recommendations for data preparation, analysis, and business decision-making.
+
+DATASET OVERVIEW:
+- Total Rows: {context['dataset_size']['rows']:,}
+- Total Columns: {context['dataset_size']['columns']}
+- Numeric Columns: {len(context['column_info']['numeric_columns'])}
+- Categorical Columns: {len(context['column_info']['categorical_columns'])}
+
+DATA QUALITY ISSUES:
+"""
+        
+        # Missing values
+        if context['data_quality']['missing_values']:
+            prompt += "Missing Values:\n"
+            for col, info in list(context['data_quality']['missing_values'].items())[:5]:
+                prompt += f"  - {col}: {info['count']} missing ({info['percentage']}%)\n"
+        else:
+            prompt += "- No missing values\n"
+        
+        # Duplicates
+        if context['data_quality']['duplicate_rows'] > 0:
+            prompt += f"- Duplicate Rows: {context['data_quality']['duplicate_rows']}\n"
+        
+        # Patterns
+        if context['patterns']['strong_correlations']:
+            prompt += "\nSTRONG CORRELATIONS:\n"
+            for corr in context['patterns']['strong_correlations'][:3]:
+                prompt += f"  - {corr['column_a']} ↔ {corr['column_b']}: {corr['correlation']} ({corr['direction']})\n"
+        
+        # Outliers
+        if context['outliers']:
+            prompt += "\nOUTLIERS:\n"
+            for col, info in list(context['outliers'].items())[:3]:
+                prompt += f"  - {col}: {info['count']} outliers ({info['percentage']}%)\n"
+        
+        # Key insights
+        if context['insights']:
+            prompt += "\nKEY INSIGHTS FROM ANALYSIS:\n"
+            for i, insight in enumerate(context['insights'][:5], 1):
+                prompt += f"{i}. {insight[:150]}...\n" if len(insight) > 150 else f"{i}. {insight}\n"
+        
+        prompt += """
+
+TASK:
+As a senior data analyst and business strategist, provide 5-8 actionable recommendations. Focus on:
+
+1. DATA QUALITY: How to handle missing values, duplicates, and data integrity issues
+2. FEATURE ENGINEERING: Opportunities to create new features or transform existing ones
+3. RISK WARNINGS: Potential pitfalls or biases in the data
+4. BUSINESS STRATEGY: How insights can inform business decisions
+5. MODELING PREPARATION: Steps to prepare data for machine learning or statistical analysis
+6. NEXT STEPS: Specific actions to take based on the analysis
+
+Format your response as a numbered list of clear, actionable recommendations.
+Each recommendation should be one or two sentences and focus on practical actions.
+Prioritize recommendations by business impact.
+
+RECOMMENDATIONS:"""
+        
+        return prompt
+
+    def _parse_llm_response(self, response_text: str) -> list[str]:
+        """Parse LLM response into a list of recommendations.
+        
+        Args:
+            response_text: Raw text from LLM
+            
+        Returns:
+            List of recommendation strings
+        """
+        recommendations = []
+        lines = response_text.strip().split('\n')
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            
+            # Remove numbering (1., 2., -, *, etc.)
+            line = line.lstrip('0123456789.-*• ')
+            line = line.lstrip(') ')
+            
+            if len(line) > 20:  # Filter out very short lines
+                recommendations.append(line)
+        
+        return recommendations
+
+    def _generate_rule_based_recommendations(self, profile: dict, patterns: dict, outliers: dict, insights: list[str]) -> list[str]:
+        """Fallback to rule-based recommendations if LLM is unavailable.
+        
+        Args:
+            profile: Profiling results
+            patterns: Pattern detection results
+            outliers: Outlier detection results
+            insights: Generated insights
+            
+        Returns:
+            List of recommendation strings
+        """
+        print("[Recommendation Agent - Rule Based] Generating rule-based recommendations...")
         recommendations = []
 
-        # ── Missing value recommendations ───────────────────────
+        # Missing value recommendations
         missing = {k: v for k, v in profile["missing_values"].items() if v > 0}
         for col, count in missing.items():
             pct = profile["missing_percentage"][col]
@@ -32,13 +264,13 @@ class RecommendationAgent:
                     f"Impute missing values in '{col}' ({pct}% missing) using mean/median or domain logic."
                 )
 
-        # ── Duplicate recommendations ───────────────────────────
+        # Duplicate recommendations
         if profile["duplicate_rows"] > 0:
             recommendations.append(
                 f"Remove {profile['duplicate_rows']:,} duplicate rows to ensure data integrity."
             )
 
-        # ── Correlation recommendations ─────────────────────────
+        # Correlation recommendations
         for corr in patterns.get("strong_correlations", []):
             recommendations.append(
                 f"Investigate the {corr['direction']} relationship between "
@@ -46,7 +278,7 @@ class RecommendationAgent:
                 f"— consider feature engineering or multicollinearity checks."
             )
 
-        # ── Outlier recommendations ─────────────────────────────
+        # Outlier recommendations
         for col, info in outliers.items():
             if info["percentage"] > 5:
                 recommendations.append(
@@ -54,7 +286,7 @@ class RecommendationAgent:
                     f"— consider capping, transformation, or removal."
                 )
 
-        # ── General recommendations ─────────────────────────────
+        # General recommendations
         numeric_count = len(profile.get("numeric_stats", {}))
         cat_count = len(profile.get("categorical_summary", {}))
 
@@ -67,5 +299,5 @@ class RecommendationAgent:
         if not recommendations:
             recommendations.append("The dataset looks clean and ready for further analysis or modeling.")
 
-        print(f"[Recommendation Agent] Generated {len(recommendations)} recommendations")
+        print(f"[Recommendation Agent - Rule Based] Generated {len(recommendations)} recommendations")
         return recommendations
