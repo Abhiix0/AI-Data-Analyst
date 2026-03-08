@@ -1,14 +1,18 @@
-"""Insight Agent (LLM-Powered) — generates intelligent insights using local LLM via Ollama."""
+"""Insight Agent (LLM-Powered) — generates intelligent insights using the centralized LLM client."""
+
+from __future__ import annotations
+
+from typing import Dict, Any, List
 
 import json
 import pandas as pd
 
-try:
-    import ollama
-    OLLAMA_AVAILABLE = True
-except ImportError:
-    OLLAMA_AVAILABLE = False
-    print("⚠️ Warning: ollama package not installed. Falling back to rule-based insights.")
+from llm.ollama_client import generate, is_available, LLMUnavailableError
+from llm.prompts import (
+    INSIGHT_SYSTEM_PROMPT,
+    insight_prompt,
+    structured_summary_from_metrics,
+)
 
 
 class InsightAgent:
@@ -22,16 +26,11 @@ class InsightAgent:
             use_llm: Whether to use LLM or fall back to rule-based (default: True)
         """
         self.model = model
-        self.use_llm = use_llm and OLLAMA_AVAILABLE
-        
+        self.use_llm = use_llm and is_available()
         if self.use_llm:
-            # Test if Ollama is running and model is available
-            try:
-                ollama.list()
-                print(f"[Insight Agent] Using LLM: {self.model}")
-            except Exception as e:
-                print(f"⚠️ Warning: Ollama not available ({e}). Falling back to rule-based insights.")
-                self.use_llm = False
+            print(f"[Insight Agent] Using LLM model via centralized client: {self.model}")
+        else:
+            print("[Insight Agent] LLM is unavailable — using rule-based insights.")
 
     def run(self, df: pd.DataFrame, profile: dict, patterns: dict, outliers: dict) -> list[str]:
         """Generate insights from analysis results.
@@ -47,8 +46,7 @@ class InsightAgent:
         """
         if self.use_llm:
             return self._generate_llm_insights(df, profile, patterns, outliers)
-        else:
-            return self._generate_rule_based_insights(profile, patterns, outliers)
+        return self._generate_rule_based_insights(profile, patterns, outliers)
 
     def _generate_llm_insights(self, df: pd.DataFrame, profile: dict, patterns: dict, outliers: dict) -> list[str]:
         """Generate insights using LLM reasoning.
@@ -62,39 +60,28 @@ class InsightAgent:
         Returns:
             List of insight strings
         """
-        print("[Insight Agent - LLM] Generating AI-powered insights...")
-        
+        print("[Insight Agent - LLM] Generating AI-powered insights via centralized client...")
+
         # Build structured summary for LLM
         summary = self._build_dataset_summary(df, profile, patterns, outliers)
-        
-        # Create prompt for LLM
-        prompt = self._create_analysis_prompt(summary)
-        
+        summary_text = json.dumps(summary, indent=2, default=str)
+
+        # Create prompt for LLM using the shared prompt template
+        prompt = insight_prompt(summary_text)
+
         try:
-            # Call Ollama LLM
-            response = ollama.chat(
+            insights_text = generate(
+                prompt=prompt,
                 model=self.model,
-                messages=[
-                    {
-                        'role': 'system',
-                        'content': 'You are a professional data analyst with expertise in exploratory data analysis, statistical reasoning, and business intelligence. Provide clear, actionable insights.'
-                    },
-                    {
-                        'role': 'user',
-                        'content': prompt
-                    }
-                ]
+                system_prompt=INSIGHT_SYSTEM_PROMPT,
             )
-            
-            # Extract insights from response
-            insights_text = response['message']['content']
             insights = self._parse_llm_response(insights_text)
-            
+
             print(f"[Insight Agent - LLM] Generated {len(insights)} AI-powered insights")
             return insights
-            
-        except Exception as e:
-            print(f"⚠️ LLM generation failed: {e}")
+
+        except (LLMUnavailableError, RuntimeError) as e:
+            print(f"⚠️ LLM generation failed via centralized client: {e}")
             print("[Insight Agent] Falling back to rule-based insights...")
             return self._generate_rule_based_insights(profile, patterns, outliers)
 
@@ -215,30 +202,8 @@ INSIGHTS:"""
         return prompt
 
     def _parse_llm_response(self, response_text: str) -> list[str]:
-        """Parse LLM response into a list of insights.
-        
-        Args:
-            response_text: Raw text from LLM
-            
-        Returns:
-            List of insight strings
-        """
-        insights = []
-        lines = response_text.strip().split('\n')
-        
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-            
-            # Remove numbering (1., 2., -, *, etc.)
-            line = line.lstrip('0123456789.-*• ')
-            line = line.lstrip(') ')
-            
-            if len(line) > 20:  # Filter out very short lines
-                insights.append(line)
-        
-        return insights
+        """Backward-compatible instance wrapper around the shared parser helper."""
+        return _parse_bullet_list_response(response_text)
 
     def _generate_rule_based_insights(self, profile: dict, patterns: dict, outliers: dict) -> list[str]:
         """Fallback to rule-based insights if LLM is unavailable.
@@ -311,3 +276,99 @@ INSIGHTS:"""
 
         print(f"[Insight Agent - Rule Based] Generated {len(insights)} insights")
         return insights
+
+
+def _parse_bullet_list_response(response_text: str) -> List[str]:
+    """Parse a numbered/bulleted list from an LLM response into plain strings."""
+    insights: List[str] = []
+    lines = response_text.strip().split("\n")
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+
+        # Remove numbering or bullet markers (1., 2., -, *, •, etc.)
+        line = line.lstrip("0123456789.-*• ")
+        line = line.lstrip(") ")
+
+        if len(line) > 20:  # Filter out very short lines
+            insights.append(line)
+
+    return insights
+
+
+def run(
+    df: pd.DataFrame,
+    cleaning_result: Dict[str, Any],
+    analysis_result: Dict[str, Any],
+    dataset_context: Dict[str, Any] | None = None,
+) -> Dict[str, Any]:
+    """Phase 1 insight agent entrypoint.
+
+    This function exposes a minimal, function-based interface that fits the
+    standardized agent contract used by the new orchestrator:
+
+    {
+        "summary": str,
+        "metrics": {
+            "mean": ...,
+            "median": ...,
+            "missing_values": ...
+        },
+        "insights": [str, ...],
+    }
+    """
+    # Build a compact summary string from upstream agent metrics and optional context.
+    cleaning_metrics = cleaning_result.get("metrics", {})
+    analysis_metrics = analysis_result.get("metrics", {})
+    summary_payload = structured_summary_from_metrics(
+        cleaning_metrics=cleaning_metrics,
+        analysis_metrics=analysis_metrics,
+        dataset_context=dataset_context or {},
+    )
+
+    insights: List[str]
+    try:
+        raw_response = generate(
+            prompt=insight_prompt(summary_payload),
+            model="llama3",
+            system_prompt=INSIGHT_SYSTEM_PROMPT,
+        )
+        insights = _parse_bullet_list_response(raw_response)
+    except (LLMUnavailableError, RuntimeError):
+        # Fall back to echoing upstream agent insights if the LLM is unavailable.
+        insights = []
+        if dataset_context:
+            # Include dataset-level understanding first if available.
+            context_summary = dataset_context.get("summary")
+            if isinstance(context_summary, str) and context_summary:
+                insights.append(context_summary)
+            insights.extend(dataset_context.get("insights", []))
+        insights.extend(cleaning_result.get("insights", []))
+        insights.extend(analysis_result.get("insights", []))
+        if not insights:
+            insights.append(
+                "No additional insights available because the LLM is unavailable and "
+                "upstream agents did not provide insights."
+            )
+
+    metrics: Dict[str, Any] = {
+        # Reuse numeric and missingness metrics from upstream agents so that
+        # the orchestrator has a single place to look.
+        "mean": analysis_metrics.get("mean"),
+        "median": analysis_metrics.get("median"),
+        "missing_values": cleaning_metrics.get("missing_values"),
+    }
+
+    summary = (
+        "Generated high-level narrative insights by combining data cleaning "
+        "and basic statistical analysis results."
+    )
+
+    return {
+        "summary": summary,
+        "metrics": metrics,
+        "insights": insights,
+    }
+

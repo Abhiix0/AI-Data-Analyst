@@ -1,13 +1,9 @@
-"""Recommendation Agent (LLM-Powered) — generates strategic recommendations using local LLM via Ollama."""
+"""Recommendation Agent (LLM-Powered) — generates strategic recommendations using the centralized LLM client."""
 
 import json
 
-try:
-    import ollama
-    OLLAMA_AVAILABLE = True
-except ImportError:
-    OLLAMA_AVAILABLE = False
-    print("⚠️ Warning: ollama package not installed. Falling back to rule-based recommendations.")
+from llm.ollama_client import generate, is_available, LLMUnavailableError
+from llm.prompts import RECOMMENDATION_SYSTEM_PROMPT, recommendation_prompt
 
 
 class RecommendationAgent:
@@ -21,16 +17,12 @@ class RecommendationAgent:
             use_llm: Whether to use LLM or fall back to rule-based (default: True)
         """
         self.model = model
-        self.use_llm = use_llm and OLLAMA_AVAILABLE
-        
+        self.use_llm = use_llm and is_available()
+
         if self.use_llm:
-            # Test if Ollama is running and model is available
-            try:
-                ollama.list()
-                print(f"[Recommendation Agent] Using LLM: {self.model}")
-            except Exception as e:
-                print(f"⚠️ Warning: Ollama not available ({e}). Falling back to rule-based recommendations.")
-                self.use_llm = False
+            print(f"[Recommendation Agent] Using LLM model via centralized client: {self.model}")
+        else:
+            print("[Recommendation Agent] LLM is unavailable — using rule-based recommendations.")
 
     def run(self, profile: dict, patterns: dict, outliers: dict, insights: list[str]) -> list[str]:
         """Generate recommendations.
@@ -46,8 +38,7 @@ class RecommendationAgent:
         """
         if self.use_llm:
             return self._generate_llm_recommendations(profile, patterns, outliers, insights)
-        else:
-            return self._generate_rule_based_recommendations(profile, patterns, outliers, insights)
+        return self._generate_rule_based_recommendations(profile, patterns, outliers, insights)
 
     def _generate_llm_recommendations(self, profile: dict, patterns: dict, outliers: dict, insights: list[str]) -> list[str]:
         """Generate recommendations using LLM reasoning.
@@ -61,39 +52,28 @@ class RecommendationAgent:
         Returns:
             List of recommendation strings
         """
-        print("[Recommendation Agent - LLM] Generating AI-powered recommendations...")
-        
+        print("[Recommendation Agent - LLM] Generating AI-powered recommendations via centralized client...")
+
         # Build structured summary for LLM
         summary = self._build_recommendation_context(profile, patterns, outliers, insights)
-        
-        # Create prompt for LLM
-        prompt = self._create_recommendation_prompt(summary)
-        
+        summary_text = json.dumps(summary, indent=2, default=str)
+
+        # Create prompt for LLM using the shared prompt template
+        prompt = recommendation_prompt(summary_text, insights)
+
         try:
-            # Call Ollama LLM
-            response = ollama.chat(
+            recommendations_text = generate(
+                prompt=prompt,
                 model=self.model,
-                messages=[
-                    {
-                        'role': 'system',
-                        'content': 'You are a senior data analyst and business strategist with expertise in data quality, feature engineering, and business intelligence. Provide clear, actionable recommendations that drive business value.'
-                    },
-                    {
-                        'role': 'user',
-                        'content': prompt
-                    }
-                ]
+                system_prompt=RECOMMENDATION_SYSTEM_PROMPT,
             )
-            
-            # Extract recommendations from response
-            recommendations_text = response['message']['content']
             recommendations = self._parse_llm_response(recommendations_text)
-            
+
             print(f"[Recommendation Agent - LLM] Generated {len(recommendations)} AI-powered recommendations")
             return recommendations
-            
-        except Exception as e:
-            print(f"⚠️ LLM generation failed: {e}")
+
+        except (LLMUnavailableError, RuntimeError) as e:
+            print(f"⚠️ LLM generation failed via centralized client: {e}")
             print("[Recommendation Agent] Falling back to rule-based recommendations...")
             return self._generate_rule_based_recommendations(profile, patterns, outliers, insights)
 
