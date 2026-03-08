@@ -1,4 +1,4 @@
-"""Insight Agent (LLM-Powered) — generates intelligent insights using the centralized LLM client."""
+"""Insight Agent — generates intelligent insights using LLM when available, with rule-based fallback."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from llm.prompts import (
 
 
 class InsightAgent:
-    """Generates professional data analysis insights using LLM reasoning."""
+    """Generates professional data analysis insights using LLM reasoning with rule-based fallback."""
 
     def __init__(self, model: str = "llama3", use_llm: bool = True):
         """Initialize the Insight Agent.
@@ -30,7 +30,7 @@ class InsightAgent:
         if self.use_llm:
             print(f"[Insight Agent] Using LLM model via centralized client: {self.model}")
         else:
-            print("[Insight Agent] LLM is unavailable — using rule-based insights.")
+            print("[Insight Agent] LLM unavailable — using rule-based insights.")
 
     def run(self, df: pd.DataFrame, profile: dict, patterns: dict, outliers: dict) -> list[str]:
         """Generate insights from analysis results.

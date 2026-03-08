@@ -17,15 +17,14 @@ import os
 
 import pandas as pd
 
-from agents import (
-    data_cleaner,
+from agents.data import data_cleaner, dataset_understanding_agent
+from agents.analysis import (
     analyst,
-    insight_agent,
-    dataset_understanding_agent,
     clustering_agent,
     anomaly_detection_agent,
     feature_importance_agent,
 )
+from agents.reasoning import insight_agent
 from loaders.csv_loader import load_csv
 from loaders.excel_loader import load_excel
 from loaders.kaggle_loader import load_kaggle

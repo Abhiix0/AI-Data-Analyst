@@ -110,3 +110,46 @@ EXISTING INSIGHTS:
 {insights_text}
 """.strip()
 
+
+QUERY_GENERATION_SYSTEM_PROMPT = (
+    "You are a data analyst assistant. You help users understand their datasets "
+    "by answering questions based on the data and analysis results."
+)
+
+
+def query_generation_prompt(question: str, dataset_summary: str) -> str:
+    """Prompt template for generating SQL-like queries or analysis code from natural language."""
+    return f"""
+You are a data analyst assistant.
+
+A user has asked the following question about their dataset:
+"{question}"
+
+Based on the dataset summary below, generate a brief, clear answer or suggest
+what analysis would be needed to answer the question.
+
+DATASET SUMMARY:
+{dataset_summary}
+
+Provide a concise, helpful response.
+""".strip()
+
+
+def query_explanation_prompt(question: str, dataset_summary: str, context: str) -> str:
+    """Prompt template for explaining query results in natural language."""
+    return f"""
+You are a data analyst assistant.
+
+A user asked: "{question}"
+
+Based on the dataset summary and analysis context below, provide a clear,
+concise answer.
+
+DATASET SUMMARY:
+{dataset_summary}
+
+ANALYSIS CONTEXT:
+{context}
+
+Provide a helpful, natural language response.
+""".strip()

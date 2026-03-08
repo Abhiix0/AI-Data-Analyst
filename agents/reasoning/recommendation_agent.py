@@ -1,4 +1,4 @@
-"""Recommendation Agent (LLM-Powered) — generates strategic recommendations using the centralized LLM client."""
+"""Recommendation Agent — generates strategic recommendations using LLM when available, with rule-based fallback."""
 
 import json
 
@@ -7,7 +7,7 @@ from llm.prompts import RECOMMENDATION_SYSTEM_PROMPT, recommendation_prompt
 
 
 class RecommendationAgent:
-    """Generates strategic, actionable recommendations using LLM reasoning."""
+    """Generates strategic, actionable recommendations using LLM reasoning with rule-based fallback."""
 
     def __init__(self, model: str = "llama3", use_llm: bool = True):
         """Initialize the Recommendation Agent.
@@ -22,7 +22,7 @@ class RecommendationAgent:
         if self.use_llm:
             print(f"[Recommendation Agent] Using LLM model via centralized client: {self.model}")
         else:
-            print("[Recommendation Agent] LLM is unavailable — using rule-based recommendations.")
+            print("[Recommendation Agent] LLM unavailable — using rule-based recommendations.")
 
     def run(self, profile: dict, patterns: dict, outliers: dict, insights: list[str]) -> list[str]:
         """Generate recommendations.

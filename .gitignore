@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment variables
+.env
+
+# Generated outputs
+outputs/charts/*
+outputs/reports/*
+kaggle_downloads/*
+
+# Keep directory structure
+!outputs/charts/.gitkeep
+!outputs/reports/.gitkeep
+!kaggle_downloads/.gitkeep
+
+# OS
+.DS_Store
+Thumbs.db
