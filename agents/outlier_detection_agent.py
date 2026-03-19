@@ -44,3 +44,28 @@ class OutlierDetectionAgent:
         total = sum(info["count"] for info in outlier_report.values())
         print(f"[Outlier Detection Agent] Found {total} outliers across {len(outlier_report)} columns")
         return outlier_report
+
+
+def run(df) -> dict:
+    """Module-level entry point — consistent with other agents."""
+    agent = OutlierDetectionAgent()
+    outlier_report = agent.run(df)
+    total = sum(info["count"] for info in outlier_report.values())
+    insights = []
+    if outlier_report:
+        insights.append(
+            f"Detected {total} outlier(s) across {len(outlier_report)} column(s) using IQR method."
+        )
+        for col, info in outlier_report.items():
+            if info["percentage"] > 5:
+                insights.append(
+                    f"Column '{col}' has {info['percentage']}% outliers "
+                    f"(outside [{info['lower_bound']}, {info['upper_bound']}])."
+                )
+    else:
+        insights.append("No significant outliers detected across numeric columns.")
+    return {
+        "summary": f"Outlier detection complete. {total} outlier(s) found.",
+        "metrics": {"outlier_report": outlier_report, "total_outliers": total},
+        "insights": insights,
+    }

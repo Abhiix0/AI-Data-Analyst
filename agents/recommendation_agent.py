@@ -2,14 +2,14 @@
 
 import json
 
-from llm.ollama_client import generate, is_available, LLMUnavailableError
+from llm.claude_client import generate, is_available, LLMUnavailableError, DEFAULT_MODEL
 from llm.prompts import RECOMMENDATION_SYSTEM_PROMPT, recommendation_prompt
 
 
 class RecommendationAgent:
     """Generates strategic, actionable recommendations using LLM reasoning with rule-based fallback."""
 
-    def __init__(self, model: str = "llama3", use_llm: bool = True):
+    def __init__(self, model: str = DEFAULT_MODEL, use_llm: bool = True):
         """Initialize the Recommendation Agent.
         
         Args:
@@ -281,3 +281,14 @@ RECOMMENDATIONS:"""
 
         print(f"[Recommendation Agent - Rule Based] Generated {len(recommendations)} recommendations")
         return recommendations
+
+
+def run(profile: dict, patterns: dict, outliers: dict, insights: list) -> dict:
+    """Module-level entry point — consistent with other agents."""
+    agent = RecommendationAgent()
+    recommendations = agent.run(profile, patterns, outliers, insights)
+    return {
+        "summary": f"Generated {len(recommendations)} recommendation(s).",
+        "metrics": {"recommendation_count": len(recommendations)},
+        "insights": recommendations,
+    }

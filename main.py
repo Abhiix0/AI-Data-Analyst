@@ -1,17 +1,20 @@
-"""AI Data Analyst — Phase 1 CLI entry point."""
-
 from __future__ import annotations
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+"""AI Data Analyst — Phase 1 CLI entry point."""
 
 import argparse
 import json
-import os
-import sys
 
 # Ensure project root is on the path so imports work when running from any directory
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from dotenv import load_dotenv
+load_dotenv()
 
 from orchestrator import run_pipeline, _load_dataset
-from agents.reasoning import query_agent
+from agents import query_agent
 
 
 def main() -> None:
@@ -30,6 +33,11 @@ Examples:
         "source",
         help="Path to a CSV/Excel file, or 'kaggle:<owner/dataset>' to fetch from Kaggle.",
     )
+    parser.add_argument(
+        "--test",
+        action="store_true",
+        help="Run in test mode (skip interactive Q&A loop)",
+    )
 
     args = parser.parse_args()
 
@@ -40,6 +48,11 @@ Examples:
 
         print("\nInitial structured report:\n")
         print(json.dumps(report, indent=2, ensure_ascii=False))
+
+        # Skip interactive mode if --test flag is provided
+        if args.test:
+            print("\n✓ Test mode: Pipeline completed successfully")
+            return
 
         # Load the DataFrame for interactive queries.
         df = _load_dataset(args.source)

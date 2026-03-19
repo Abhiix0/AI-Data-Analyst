@@ -144,3 +144,15 @@ class ReportAgent:
 
         print(f"[Report Agent] Report saved to {report_path}")
         return report_path
+
+
+def run(source: str, profile: dict, charts: list, patterns: dict, outliers: dict, insights: list, recommendations: list) -> dict:
+    """Module-level entry point — consistent with other agents."""
+    agent = ReportAgent()
+    report_path = agent.run(source, profile, charts, patterns, outliers, insights, recommendations)
+    return {
+        "summary": f"Report saved to {report_path}.",
+        "metrics": {"report_path": report_path},
+        "insights": [f"Full analysis report written to {report_path}."],
+        "report_path": report_path,
+    }

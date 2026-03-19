@@ -16,7 +16,7 @@ import json
 
 import pandas as pd
 
-from llm.ollama_client import generate, LLMUnavailableError
+from llm.claude_client import generate, LLMUnavailableError, DEFAULT_MODEL
 from llm.prompts import (
     QUERY_GENERATION_SYSTEM_PROMPT,
     query_generation_prompt,
@@ -126,7 +126,7 @@ def answer_query(
         generation_prompt = query_generation_prompt(question, context_text)
         raw_query = generate(
             prompt=generation_prompt,
-            model="llama3",
+            model=DEFAULT_MODEL,
             system_prompt=QUERY_GENERATION_SYSTEM_PROMPT,
         )
         # Use the first non-empty line, strip potential markdown fences just in case.
@@ -145,7 +145,7 @@ def answer_query(
         explanation_prompt = query_explanation_prompt(question, result_preview)
         explanation = generate(
             prompt=explanation_prompt,
-            model="llama3",
+            model=DEFAULT_MODEL,
             system_prompt=None,
         ).strip()
 

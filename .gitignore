@@ -19,6 +19,7 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
 # Virtual Environment
 .venv/
@@ -32,20 +33,41 @@ env/
 *.swp
 *.swo
 *~
+.DS_Store
 
 # Environment variables
 .env
+.env.local
 
 # Generated outputs
+outputs/
 outputs/charts/*
 outputs/reports/*
-kaggle_downloads/*
-
-# Keep directory structure
 !outputs/charts/.gitkeep
 !outputs/reports/.gitkeep
+
+# Kaggle downloads
+kaggle_downloads/*
 !kaggle_downloads/.gitkeep
 
 # OS
 .DS_Store
 Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*.ipynb
+
+# pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json

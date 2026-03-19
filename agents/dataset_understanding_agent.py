@@ -12,7 +12,7 @@ from typing import Dict, Any, List, Optional
 import json
 import pandas as pd
 
-from llm.ollama_client import generate, LLMUnavailableError
+from llm.claude_client import generate, LLMUnavailableError, DEFAULT_MODEL
 from llm.prompts import (
     DATASET_UNDERSTANDING_SYSTEM_PROMPT,
     dataset_understanding_prompt,
@@ -124,7 +124,7 @@ def run(df: pd.DataFrame, dataset_name: Optional[str] = None) -> Dict[str, Any]:
     try:
         raw = generate(
             prompt=dataset_understanding_prompt(summary_text),
-            model="llama3",
+            model=DEFAULT_MODEL,
             system_prompt=DATASET_UNDERSTANDING_SYSTEM_PROMPT,
         )
         parsed = _parse_llm_response(raw)

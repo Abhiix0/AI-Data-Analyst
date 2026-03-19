@@ -111,3 +111,15 @@ class VisualizationAgent:
             plt.close(fig)
             paths.append(path)
         return paths
+
+
+def run(df) -> dict:
+    """Module-level entry point — consistent with other agents."""
+    agent = VisualizationAgent()
+    chart_paths = agent.run(df)
+    return {
+        "summary": f"Generated {len(chart_paths)} chart(s).",
+        "metrics": {"chart_count": len(chart_paths), "chart_paths": chart_paths},
+        "insights": [f"Saved {len(chart_paths)} visualization(s) to outputs/charts/."],
+        "chart_paths": chart_paths,
+    }

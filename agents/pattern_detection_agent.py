@@ -66,3 +66,34 @@ class PatternDetectionAgent:
             f"{len(results['column_trends'])} trends"
         )
         return results
+
+
+def run(df) -> dict:
+    """Module-level entry point — consistent with other agents."""
+    agent = PatternDetectionAgent()
+    result = agent.run(df)
+    # Wrap into standard agent output format
+    strong = result.get("strong_correlations", [])
+    trends = result.get("column_trends", [])
+    insights = []
+    for corr in strong:
+        insights.append(
+            f"Strong {corr['direction']} correlation ({corr['correlation']}) between "
+            f"'{corr['column_a']}' and '{corr['column_b']}'."
+        )
+    for trend in trends:
+        insights.append(
+            f"Column '{trend['column']}' shows a {trend['trend']} trend "
+            f"({trend['change_percent']:+.1f}% change)."
+        )
+    if not insights:
+        insights.append("No strong correlations or significant trends detected.")
+    return {
+        "summary": f"Found {len(strong)} strong correlation(s) and {len(trends)} trend(s).",
+        "metrics": {
+            "strong_correlations": strong,
+            "column_trends": trends,
+            "correlation_matrix": result.get("correlation_matrix", {}),
+        },
+        "insights": insights,
+    }

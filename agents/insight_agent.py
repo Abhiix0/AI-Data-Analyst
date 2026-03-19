@@ -7,7 +7,7 @@ from typing import Dict, Any, List
 import json
 import pandas as pd
 
-from llm.ollama_client import generate, is_available, LLMUnavailableError
+from llm.claude_client import generate, is_available, LLMUnavailableError, DEFAULT_MODEL
 from llm.prompts import (
     INSIGHT_SYSTEM_PROMPT,
     insight_prompt,
@@ -18,7 +18,7 @@ from llm.prompts import (
 class InsightAgent:
     """Generates professional data analysis insights using LLM reasoning with rule-based fallback."""
 
-    def __init__(self, model: str = "llama3", use_llm: bool = True):
+    def __init__(self, model: str = DEFAULT_MODEL, use_llm: bool = True):
         """Initialize the Insight Agent.
         
         Args:
@@ -332,7 +332,7 @@ def run(
     try:
         raw_response = generate(
             prompt=insight_prompt(summary_payload),
-            model="llama3",
+            model=DEFAULT_MODEL,
             system_prompt=INSIGHT_SYSTEM_PROMPT,
         )
         insights = _parse_bullet_list_response(raw_response)
