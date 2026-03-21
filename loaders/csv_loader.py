@@ -28,7 +28,6 @@ def load_csv(file_path: str) -> pd.DataFrame:
             try:
                 df = pd.read_csv(file_path, encoding=encoding, delimiter=delimiter)
                 if len(df.columns) > 1:
-                    print(f"[CSV Loader] Loaded {file_path} ({encoding}, delimiter='{delimiter}')")
                     # Try to convert string columns to numeric
                     df = _auto_convert_types(df)
                     return df
@@ -37,7 +36,6 @@ def load_csv(file_path: str) -> pd.DataFrame:
 
     # Final fallback — let pandas figure it out
     df = pd.read_csv(file_path)
-    print(f"[CSV Loader] Loaded {file_path} (pandas default)")
     df = _auto_convert_types(df)
     return df
 

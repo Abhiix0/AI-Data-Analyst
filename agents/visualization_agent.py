@@ -19,17 +19,19 @@ def _clear_charts_dir():
             os.remove(os.path.join(CHARTS_DIR, f))
 
 
-def run(df: pd.DataFrame, profile: Dict[str, Any]) -> Dict[str, Any]:
-    """Generate charts intelligently based on what the profile found."""
+def run(df: pd.DataFrame, profile: Dict[str, Any]) -> List[str]:
+    """Generate charts intelligently based on what the profile found.
+    Returns list of saved chart paths."""
+    if df.empty or len(df.columns) == 0:
+        return []
     _clear_charts_dir()
     sns.set_theme(style="whitegrid", palette="husl")
     saved: List[str] = []
 
-    metrics = profile["metrics"]
-    numeric_stats = metrics.get("numeric_stats", {})
-    outliers = metrics.get("outliers", {})
-    top_correlations = metrics.get("top_correlations", [])
-    categorical_stats = metrics.get("categorical_stats", {})
+    numeric_stats = profile.get("numeric_stats", {})
+    outliers = profile.get("outliers", {})
+    top_correlations = profile.get("top_correlations", [])
+    categorical_stats = profile.get("categorical_stats", {})
 
     numeric_cols = list(numeric_stats.keys())
     cat_cols = list(categorical_stats.keys())
@@ -125,9 +127,4 @@ def run(df: pd.DataFrame, profile: Dict[str, Any]) -> Dict[str, Any]:
         except Exception:
             plt.close("all")
 
-    return {
-        "summary": f"Generated {len(saved)} charts.",
-        "metrics": {"chart_count": len(saved), "chart_paths": saved},
-        "insights": [f"Generated {len(saved)} charts saved to outputs/charts/."],
-        "chart_paths": saved,
-    }
+    return saved

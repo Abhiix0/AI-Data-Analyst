@@ -1,54 +1,48 @@
 """Report Agent — assembles everything into a structured markdown report."""
 from __future__ import annotations
-from typing import Dict, Any, List
 import os
 from datetime import datetime
+
+from core.context import AnalysisContext
 
 REPORTS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "outputs", "reports")
 
 
-def run(
-    source: str,
-    context: Dict[str, Any],
-    profile: Dict[str, Any],
-    insights: List[str],
-    recommendations: List[str],
-    charts: List[str],
-) -> Dict[str, Any]:
-    """Assemble the full markdown report from all agent outputs."""
+def run(ctx: AnalysisContext) -> str:
+    """Writes markdown report. Returns the report file path."""
     os.makedirs(REPORTS_DIR, exist_ok=True)
 
-    m = profile["metrics"]
+    m = ctx.profile
     shape = m["shape"]
-    missing = m["missing"]
-    outliers = m["outliers"]
-    top_corr = m["top_correlations"]
+    missing = m.get("missing", {})
+    outliers = m.get("outliers", {})
+    top_corr = m.get("top_correlations", [])
 
     lines = []
     lines += [
         "# AI Data Analyst — Analysis Report",
         "",
         f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-        f"**Dataset:** `{source}`",
+        f"**Dataset:** `{ctx.file_name}`",
         "",
         "---",
         "## 1. Dataset Overview",
         "",
-        f"| Metric | Value |",
-        f"|--------|-------|",
+        "| Metric | Value |",
+        "|--------|-------|",
         f"| Rows | {shape['rows']:,} |",
         f"| Columns | {shape['columns']} |",
-        f"| Duplicate Rows | {m['duplicate_rows']:,} |",
+        f"| Duplicate Rows | {m.get('duplicate_rows', 0):,} |",
         f"| Missing Columns | {len(missing)} |",
         f"| Outlier Columns | {len(outliers)} |",
         "",
-        f"**Dataset Summary:** {context.get('summary', 'N/A')}",
+        f"**Dataset Summary:** {ctx.shape_summary()}",
         "",
     ]
 
     # Column types
     lines += ["### Column Types", "", "| Column | Type |", "|--------|------|"]
-    for col, dtype in m["dtypes"].items():
+    for col, dtype in m.get("dtypes", {}).items():
         lines.append(f"| {col} | {dtype} |")
     lines.append("")
 
@@ -62,7 +56,7 @@ def run(
     else:
         lines += ["✅ No missing values.", ""]
 
-    if m["duplicate_rows"] > 0:
+    if m.get("duplicate_rows", 0) > 0:
         lines += [f"⚠️ **{m['duplicate_rows']:,} duplicate rows** detected.", ""]
 
     if outliers:
@@ -73,7 +67,6 @@ def run(
     else:
         lines += ["✅ No significant outliers.", ""]
 
-    # Correlations
     if top_corr:
         strong = [c for c in top_corr if abs(c["r"]) >= 0.7]
         if strong:
@@ -84,20 +77,20 @@ def run(
 
     # Insights
     lines += ["---", "## 3. Key Insights", ""]
-    for i, insight in enumerate(insights, 1):
+    for i, insight in enumerate(ctx.insights, 1):
         lines.append(f"{i}. {insight}")
     lines.append("")
 
     # Recommendations
     lines += ["---", "## 4. Recommendations", ""]
-    for i, rec in enumerate(recommendations, 1):
+    for i, rec in enumerate(ctx.recommendations, 1):
         lines.append(f"{i}. {rec}")
     lines.append("")
 
     # Charts
     lines += ["---", "## 5. Visualizations", ""]
-    if charts:
-        for path in charts:
+    if ctx.chart_paths:
+        for path in ctx.chart_paths:
             name = os.path.basename(path)
             rel = os.path.relpath(path, REPORTS_DIR).replace("\\", "/")
             lines += [f"### {name}", f"![{name}]({rel})", ""]
@@ -108,9 +101,4 @@ def run(
     with open(report_path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
 
-    return {
-        "summary": f"Report saved to {report_path}.",
-        "metrics": {"report_path": report_path},
-        "insights": [f"Report written to {report_path}."],
-        "report_path": report_path,
-    }
+    return report_path

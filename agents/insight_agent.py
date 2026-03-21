@@ -1,9 +1,10 @@
-"""Insight Agent — Claude writes insights from scratch using full profile + curated highlights."""
+"""Insight Agent — generates insights from the analysis profile using Groq LLM."""
 from __future__ import annotations
-from typing import Dict, Any, List
+from typing import List
 import json
-import pandas as pd
-from llm.claude_client import generate, LLMUnavailableError, DEFAULT_MODEL
+
+from core.context import AnalysisContext
+from llm.groq_client import generate, LLMUnavailableError
 from llm.prompts import INSIGHT_SYSTEM_PROMPT, insight_prompt
 
 
@@ -19,19 +20,23 @@ def _parse_insights(text: str) -> List[str]:
     return insights
 
 
-def run(
-    df: pd.DataFrame,
-    profile: Dict[str, Any],
-    context: Dict[str, Any],
-) -> Dict[str, Any]:
-    """Send full profile + curated highlights to Claude and get deep insights."""
-    rows = profile["metrics"]["shape"]["rows"]
-    cols = profile["metrics"]["shape"]["columns"]
-    highlights = profile["metrics"]["highlights"]
-    full_profile_json = json.dumps(profile["metrics"], indent=2, default=str)
+def _rule_based_insights(profile: dict) -> List[str]:
+    """Fallback insights when LLM is unavailable."""
+    return profile.get("highlights", ["Dataset loaded successfully."])
+
+
+def run(ctx: AnalysisContext) -> List[str]:
+    """Returns list of insight strings."""
+    if not ctx.profile:
+        return ["Dataset loaded. Run profiling to generate insights."]
+    profile = ctx.profile
+    rows = profile["shape"]["rows"]
+    cols = profile["shape"]["columns"]
+    highlights = profile.get("highlights", [])
+    full_profile_json = json.dumps(profile, indent=2, default=str)
 
     prompt = insight_prompt(
-        dataset_summary=context.get("summary", ""),
+        dataset_summary=f"{ctx.file_name} — {rows:,} rows, {cols} columns",
         highlights=highlights,
         full_profile=full_profile_json,
         rows=rows,
@@ -41,22 +46,10 @@ def run(
     try:
         raw = generate(
             prompt=prompt,
-            model=DEFAULT_MODEL,
             system_prompt=INSIGHT_SYSTEM_PROMPT,
             max_tokens=2048,
         )
         insights = _parse_insights(raw)
-        if not insights:
-            insights = [raw.strip()]
-    except (LLMUnavailableError, RuntimeError) as e:
-        return {
-            "summary": "Insight generation failed.",
-            "metrics": {"error": str(e)},
-            "insights": [f"Claude unavailable: {e}"],
-        }
-
-    return {
-        "summary": f"Generated {len(insights)} insights.",
-        "metrics": {"insight_count": len(insights)},
-        "insights": insights,
-    }
+        return insights if insights else _rule_based_insights(profile)
+    except (LLMUnavailableError, RuntimeError):
+        return _rule_based_insights(profile)

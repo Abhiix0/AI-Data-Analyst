@@ -17,5 +17,4 @@ def load_excel(file_path: str) -> pd.DataFrame:
         ValueError: If the file cannot be parsed.
     """
     df = pd.read_excel(file_path, engine="openpyxl")
-    print(f"[Excel Loader] Loaded {file_path} — {df.shape[0]} rows, {df.shape[1]} columns")
     return df

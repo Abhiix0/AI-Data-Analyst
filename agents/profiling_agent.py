@@ -7,6 +7,8 @@ import numpy as np
 
 def run(df: pd.DataFrame) -> Dict[str, Any]:
     """Compute a full profile of the dataset."""
+    if df.empty:
+        return {"shape": {"rows": 0, "columns": 0}, "highlights": ["Empty dataset."]}
     rows, cols = df.shape
 
     # ── Missing values ────────────────────────────────────────────────
@@ -127,17 +129,13 @@ def run(df: pd.DataFrame) -> Dict[str, Any]:
             highlights.append(f"Column '{col}' has all unique values — likely an ID column.")
 
     return {
-        "summary": f"Dataset profiled: {rows:,} rows, {cols} columns.",
-        "insights": highlights,
-        "metrics": {
-            "shape": {"rows": rows, "columns": cols},
-            "dtypes": {col: str(dtype) for col, dtype in df.dtypes.items()},
-            "missing": missing_info,
-            "duplicate_rows": duplicate_rows,
-            "numeric_stats": numeric_stats,
-            "top_correlations": top_correlations,
-            "outliers": outliers,
-            "categorical_stats": categorical_stats,
-            "highlights": highlights,
-        },
+        "shape": {"rows": rows, "columns": cols},
+        "dtypes": {col: str(dtype) for col, dtype in df.dtypes.items()},
+        "missing": missing_info,
+        "duplicate_rows": duplicate_rows,
+        "numeric_stats": numeric_stats,
+        "top_correlations": top_correlations,
+        "outliers": outliers,
+        "categorical_stats": categorical_stats,
+        "highlights": highlights,
     }
