@@ -72,9 +72,9 @@ def run_pipeline(source: str, progress_callback=None) -> AnalysisContext:
         else os.path.splitext(os.path.basename(source))[0]
     )
 
-    ctx = AnalysisContext(df=df, file_name=file_name)
-
     _validate_dataset(df, source)
+
+    ctx = AnalysisContext(df=df, file_name=file_name)
 
     _progress(1, "Profiling dataset...")
     ctx.profile = _safe_run(ctx, "Profiling", run_profiling, df) or {}

@@ -125,10 +125,13 @@ if "ctx" not in st.session_state:
 
 # ── Helpers ──────────────────────────────────────────────────────
 def save_upload(uploaded_file) -> str:
+    import atexit, shutil
     tmp = tempfile.mkdtemp()
     path = os.path.join(tmp, uploaded_file.name)
     with open(path, "wb") as f:
         f.write(uploaded_file.getbuffer())
+    # Register cleanup so temp dir is deleted when the process exits
+    atexit.register(shutil.rmtree, tmp, ignore_errors=True)
     return path
 
 
@@ -239,9 +242,11 @@ with st.sidebar:
         st.markdown("")
 
         if st.button("🚀 Run Analysis", type="primary", use_container_width=True):
+            st.session_state.ctx = None   # clear stale state immediately
             path = save_upload(uploaded)
-            progress_bar = st.progress(0)
+            progress_bar = st.progress(0.03)     # small nonzero value immediately
             status_text = st.empty()
+            status_text.caption("⚙️ Loading dataset...")
 
             def update_progress(step: int, total: int, message: str):
                 progress_bar.progress(step / total)

@@ -48,6 +48,9 @@ def _rule_based_recommendations(profile: dict) -> List[str]:
 
 def run(ctx: AnalysisContext) -> List[str]:
     """Returns list of recommendation strings."""
+    if not ctx.profile:
+        return ["Profiling data unavailable — cannot generate recommendations."]
+
     profile = ctx.profile
     profile_summary = {
         "shape": profile["shape"],

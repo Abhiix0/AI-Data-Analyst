@@ -8,7 +8,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-CHARTS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "outputs", "charts")
+from core.config import CHARTS_DIR
 
 
 def _clear_charts_dir():
@@ -54,8 +54,9 @@ def run(df: pd.DataFrame, profile: Dict[str, Any]) -> List[str]:
             fig.savefig(path, dpi=120)
             plt.close(fig)
             saved.append(path)
-        except Exception:
+        except Exception as e:
             plt.close("all")
+            print(f"[VIZ WARNING] Chart generation failed for '{col}': {e}")
 
     # 2. Box plots — only for columns that actually have outliers
     outlier_cols = list(outliers.keys())[:4]
@@ -69,8 +70,9 @@ def run(df: pd.DataFrame, profile: Dict[str, Any]) -> List[str]:
             fig.savefig(path, dpi=120)
             plt.close(fig)
             saved.append(path)
-        except Exception:
+        except Exception as e:
             plt.close("all")
+            print(f"[VIZ WARNING] Chart generation failed for '{col}': {e}")
 
     # 3. Scatter plots — top 3 strongly correlated pairs
     strong_pairs = [c for c in top_correlations if abs(c["r"]) >= 0.5][:3]
@@ -89,8 +91,9 @@ def run(df: pd.DataFrame, profile: Dict[str, Any]) -> List[str]:
             fig.savefig(path, dpi=120)
             plt.close(fig)
             saved.append(path)
-        except Exception:
+        except Exception as e:
             plt.close("all")
+            print(f"[VIZ WARNING] Chart generation failed for '{col_a}_vs_{col_b}': {e}")
 
     # 4. Correlation heatmap
     if len(numeric_cols) >= 2:
@@ -105,8 +108,9 @@ def run(df: pd.DataFrame, profile: Dict[str, Any]) -> List[str]:
             fig.savefig(path, dpi=120)
             plt.close(fig)
             saved.append(path)
-        except Exception:
+        except Exception as e:
             plt.close("all")
+            print(f"[VIZ WARNING] Correlation heatmap failed: {e}")
 
     # 5. Bar charts — categorical columns with 2-20 unique values
     useful_cat = [c for c in cat_cols if 2 <= categorical_stats[c]["unique_count"] <= 20][:4]
@@ -124,7 +128,8 @@ def run(df: pd.DataFrame, profile: Dict[str, Any]) -> List[str]:
             fig.savefig(path, dpi=120)
             plt.close(fig)
             saved.append(path)
-        except Exception:
+        except Exception as e:
             plt.close("all")
+            print(f"[VIZ WARNING] Chart generation failed for '{col}': {e}")
 
     return saved

@@ -5,7 +5,7 @@ from datetime import datetime
 
 from core.context import AnalysisContext
 
-REPORTS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "outputs", "reports")
+from core.config import REPORTS_DIR
 
 
 def run(ctx: AnalysisContext) -> str:
@@ -90,9 +90,15 @@ def run(ctx: AnalysisContext) -> str:
     # Charts
     lines += ["---", "## 5. Visualizations", ""]
     if ctx.chart_paths:
+        lines += [
+            "> 📁 **Note:** Chart images are saved in `outputs/charts/`.",
+            "> To view them, open this report from the project root directory.",
+            "",
+        ]
         for path in ctx.chart_paths:
             name = os.path.basename(path)
-            rel = os.path.relpath(path, REPORTS_DIR).replace("\\", "/")
+            # Use path relative to project root for portability
+            rel = os.path.join("..", "charts", name).replace("\\", "/")
             lines += [f"### {name}", f"![{name}]({rel})", ""]
     else:
         lines += ["No charts generated.", ""]

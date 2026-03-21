@@ -1,15 +1,8 @@
-"""All prompt builders. One file, all prompts."""
+"""LLM prompt builders for the Insight and Recommendation agents."""
 from __future__ import annotations
-from typing import List, Mapping, Any
-import json
+from typing import List
 
 # ── System prompts ──────────────────────────────────────────────
-UNDERSTANDING_SYSTEM_PROMPT = (
-    "You are a senior data scientist. Given a dataset's structure, column names, "
-    "and sample values, identify its domain, purpose, and analysis potential. "
-    "Be precise and grounded — only state what the data clearly shows."
-)
-
 INSIGHT_SYSTEM_PROMPT = (
     "You are a world-class data analyst. Your job is to produce sharp, specific, "
     "non-obvious insights from dataset statistics. Every insight must reference "
@@ -23,26 +16,8 @@ RECOMMENDATION_SYSTEM_PROMPT = (
     "Each recommendation must specify WHO should do WHAT and WHY, grounded in the data."
 )
 
-QUERY_SYSTEM_PROMPT = (
-    "You are a pandas expert. Output ONLY a single valid pandas expression using the variable `df`. "
-    "No explanations. No markdown. No assignments. Just the expression on one line."
-)
-
 
 # ── Prompt builders ─────────────────────────────────────────────
-def understanding_prompt(dataset_json: str) -> str:
-    return f"""Analyze this dataset and provide:
-1. One sentence describing what this dataset is (domain + purpose).
-2. The likely business context and how this data would be used.
-3. The most obvious target/prediction variable (if any) — state "None" if not applicable.
-4. The top 3 analysis questions a data team would want to answer with this data.
-
-Be specific and analytical. Use the column names and sample values to ground your answer.
-
-DATASET:
-{dataset_json}""".strip()
-
-
 def insight_prompt(
     dataset_summary: str,
     highlights: List[str],
@@ -102,25 +77,3 @@ Rules:
 - Each recommendation is 1-2 sentences
 
 RECOMMENDATIONS:""".strip()
-
-
-def query_prompt(question: str, context: str) -> str:
-    return f"""DataFrame is stored in variable `df`.
-Context: {context}
-Question: "{question}"
-Output ONLY a pandas expression that answers this question. One line. No explanation.""".strip()
-
-
-def structured_summary_from_metrics(
-    *,
-    cleaning_metrics: Mapping[str, Any],
-    analysis_metrics: Mapping[str, Any],
-    dataset_context: Mapping[str, Any] | None = None,
-) -> str:
-    payload: dict[str, Any] = {
-        "cleaning_metrics": cleaning_metrics,
-        "analysis_metrics": analysis_metrics,
-    }
-    if dataset_context is not None:
-        payload["dataset_context"] = dataset_context
-    return json.dumps(payload, indent=2, default=str)

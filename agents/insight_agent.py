@@ -33,7 +33,16 @@ def run(ctx: AnalysisContext) -> List[str]:
     rows = profile["shape"]["rows"]
     cols = profile["shape"]["columns"]
     highlights = profile.get("highlights", [])
-    full_profile_json = json.dumps(profile, indent=2, default=str)
+    # Cap profile sent to LLM to avoid exceeding context window
+    profile_for_llm = {
+        "shape": profile.get("shape", {}),
+        "highlights": profile.get("highlights", []),
+        "top_correlations": profile.get("top_correlations", [])[:5],
+        "outliers": dict(list(profile.get("outliers", {}).items())[:5]),
+        "numeric_stats": dict(list(profile.get("numeric_stats", {}).items())[:10]),
+        "categorical_stats": dict(list(profile.get("categorical_stats", {}).items())[:5]),
+    }
+    full_profile_json = json.dumps(profile_for_llm, indent=2, default=str)
 
     prompt = insight_prompt(
         dataset_summary=f"{ctx.file_name} — {rows:,} rows, {cols} columns",
