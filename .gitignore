@@ -37,6 +37,8 @@ htmlcov/
 
 # Kaggle
 !kaggle_downloads/.gitkeep
+*.sqlite
+*.db
 
 # Outputs
 !outputs/charts/.gitkeep
