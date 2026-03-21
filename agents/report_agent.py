@@ -1,158 +1,116 @@
-"""Report Agent — compiles all analysis outputs into a structured Markdown report."""
-
+"""Report Agent — assembles everything into a structured markdown report."""
+from __future__ import annotations
+from typing import Dict, Any, List
 import os
 from datetime import datetime
-
 
 REPORTS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "outputs", "reports")
 
 
-class ReportAgent:
-    """Aggregates all agent outputs into a Markdown analysis report."""
+def run(
+    source: str,
+    context: Dict[str, Any],
+    profile: Dict[str, Any],
+    insights: List[str],
+    recommendations: List[str],
+    charts: List[str],
+) -> Dict[str, Any]:
+    """Assemble the full markdown report from all agent outputs."""
+    os.makedirs(REPORTS_DIR, exist_ok=True)
 
-    def __init__(self):
-        os.makedirs(REPORTS_DIR, exist_ok=True)
+    m = profile["metrics"]
+    shape = m["shape"]
+    missing = m["missing"]
+    outliers = m["outliers"]
+    top_corr = m["top_correlations"]
 
-    def run(
-        self,
-        source: str,
-        profile: dict,
-        charts: list[str],
-        patterns: dict,
-        outliers: dict,
-        insights: list[str],
-        recommendations: list[str],
-    ) -> str:
-        """Generate the final analysis report.
+    lines = []
+    lines += [
+        "# AI Data Analyst — Analysis Report",
+        "",
+        f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        f"**Dataset:** `{source}`",
+        "",
+        "---",
+        "## 1. Dataset Overview",
+        "",
+        f"| Metric | Value |",
+        f"|--------|-------|",
+        f"| Rows | {shape['rows']:,} |",
+        f"| Columns | {shape['columns']} |",
+        f"| Duplicate Rows | {m['duplicate_rows']:,} |",
+        f"| Missing Columns | {len(missing)} |",
+        f"| Outlier Columns | {len(outliers)} |",
+        "",
+        f"**Dataset Summary:** {context.get('summary', 'N/A')}",
+        "",
+    ]
 
-        Args:
-            source: Original dataset source path or reference.
-            profile: Output from ProfilingAgent.
-            charts: List of chart file paths from VisualizationAgent.
-            patterns: Output from PatternDetectionAgent.
-            outliers: Output from OutlierDetectionAgent.
-            insights: Output from InsightAgent.
-            recommendations: Output from RecommendationAgent.
+    # Column types
+    lines += ["### Column Types", "", "| Column | Type |", "|--------|------|"]
+    for col, dtype in m["dtypes"].items():
+        lines.append(f"| {col} | {dtype} |")
+    lines.append("")
 
-        Returns:
-            Path to the saved Markdown report.
-        """
-        print("[Report Agent] Compiling report...")
-
-        lines = []
-        lines.append("# 📊 AI Data Analyst — Analysis Report")
+    # Data quality
+    lines += ["---", "## 2. Data Quality", ""]
+    if missing:
+        lines += ["### Missing Values", "", "| Column | Missing Count | Missing % |", "|--------|--------------|-----------|"]
+        for col, info in missing.items():
+            lines.append(f"| {col} | {info['count']:,} | {info['pct']}% |")
         lines.append("")
-        lines.append(f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        lines.append(f"**Dataset:** `{source}`")
-        lines.append("")
+    else:
+        lines += ["✅ No missing values.", ""]
 
-        # ── 1. Dataset Overview ─────────────────────────────────
-        lines.append("---")
-        lines.append("## 1. Dataset Overview")
-        lines.append("")
-        lines.append(f"| Metric | Value |")
-        lines.append(f"|--------|-------|")
-        lines.append(f"| Rows | {profile['shape']['rows']:,} |")
-        lines.append(f"| Columns | {profile['shape']['columns']} |")
-        lines.append(f"| Duplicate Rows | {profile['duplicate_rows']:,} |")
-        lines.append("")
+    if m["duplicate_rows"] > 0:
+        lines += [f"⚠️ **{m['duplicate_rows']:,} duplicate rows** detected.", ""]
 
-        lines.append("### Column Types")
+    if outliers:
+        lines += ["### Outliers", "", "| Column | Count | % | Lower Bound | Upper Bound |", "|--------|-------|---|-------------|-------------|"]
+        for col, info in outliers.items():
+            lines.append(f"| {col} | {info['count']} | {info['pct']}% | {info['lower_bound']} | {info['upper_bound']} |")
         lines.append("")
-        lines.append("| Column | Type |")
-        lines.append("|--------|------|")
-        for col, dtype in profile["dtypes"].items():
-            lines.append(f"| {col} | {dtype} |")
-        lines.append("")
+    else:
+        lines += ["✅ No significant outliers.", ""]
 
-        # ── 2. Data Quality Issues ──────────────────────────────
-        lines.append("---")
-        lines.append("## 2. Data Quality Issues")
-        lines.append("")
-
-        missing = {k: v for k, v in profile["missing_values"].items() if v > 0}
-        if missing:
-            lines.append("### Missing Values")
-            lines.append("")
-            lines.append("| Column | Missing Count | Missing % |")
-            lines.append("|--------|--------------|-----------|")
-            for col, count in missing.items():
-                pct = profile["missing_percentage"][col]
-                lines.append(f"| {col} | {count:,} | {pct}% |")
-            lines.append("")
-        else:
-            lines.append("✅ No missing values detected.")
+    # Correlations
+    if top_corr:
+        strong = [c for c in top_corr if abs(c["r"]) >= 0.7]
+        if strong:
+            lines += ["### Strong Correlations (|r| >= 0.7)", "", "| Column A | Column B | r | Direction |", "|----------|----------|---|-----------|"]
+            for c in strong:
+                lines.append(f"| {c['col_a']} | {c['col_b']} | {c['r']} | {c['direction']} |")
             lines.append("")
 
-        if profile["duplicate_rows"] > 0:
-            lines.append(f"⚠️ **{profile['duplicate_rows']:,} duplicate row(s)** found in the dataset.")
-            lines.append("")
+    # Insights
+    lines += ["---", "## 3. Key Insights", ""]
+    for i, insight in enumerate(insights, 1):
+        lines.append(f"{i}. {insight}")
+    lines.append("")
 
-        # ── 3. Key Insights ─────────────────────────────────────
-        lines.append("---")
-        lines.append("## 3. Key Insights")
-        lines.append("")
-        for i, insight in enumerate(insights, 1):
-            lines.append(f"{i}. {insight}")
-        lines.append("")
+    # Recommendations
+    lines += ["---", "## 4. Recommendations", ""]
+    for i, rec in enumerate(recommendations, 1):
+        lines.append(f"{i}. {rec}")
+    lines.append("")
 
-        # ── 4. Outlier Analysis ─────────────────────────────────
-        lines.append("---")
-        lines.append("## 4. Outlier Analysis")
-        lines.append("")
-        if outliers:
-            lines.append("| Column | Outlier Count | % of Column | Lower Bound | Upper Bound |")
-            lines.append("|--------|--------------|-------------|-------------|-------------|")
-            for col, info in outliers.items():
-                lines.append(
-                    f"| {col} | {info['count']} | {info['percentage']}% "
-                    f"| {info['lower_bound']} | {info['upper_bound']} |"
-                )
-            lines.append("")
-        else:
-            lines.append("✅ No significant outliers detected.")
-            lines.append("")
+    # Charts
+    lines += ["---", "## 5. Visualizations", ""]
+    if charts:
+        for path in charts:
+            name = os.path.basename(path)
+            rel = os.path.relpath(path, REPORTS_DIR).replace("\\", "/")
+            lines += [f"### {name}", f"![{name}]({rel})", ""]
+    else:
+        lines += ["No charts generated.", ""]
 
-        # ── 5. Visualizations ───────────────────────────────────
-        lines.append("---")
-        lines.append("## 5. Visualizations")
-        lines.append("")
-        if charts:
-            for chart_path in charts:
-                chart_name = os.path.basename(chart_path)
-                # Use relative path from reports dir
-                rel_path = os.path.relpath(chart_path, REPORTS_DIR).replace("\\", "/")
-                lines.append(f"### {chart_name}")
-                lines.append(f"![{chart_name}]({rel_path})")
-                lines.append("")
-        else:
-            lines.append("No charts were generated.")
-            lines.append("")
+    report_path = os.path.join(REPORTS_DIR, "analysis_report.md")
+    with open(report_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
 
-        # ── 6. Recommendations ──────────────────────────────────
-        lines.append("---")
-        lines.append("## 6. Recommendations")
-        lines.append("")
-        for i, rec in enumerate(recommendations, 1):
-            lines.append(f"{i}. {rec}")
-        lines.append("")
-
-        # ── Save report ─────────────────────────────────────────
-        report_path = os.path.join(REPORTS_DIR, "analysis_report.md")
-        with open(report_path, "w", encoding="utf-8") as f:
-            f.write("\n".join(lines))
-
-        print(f"[Report Agent] Report saved to {report_path}")
-        return report_path
-
-
-def run(source: str, profile: dict, charts: list, patterns: dict, outliers: dict, insights: list, recommendations: list) -> dict:
-    """Module-level entry point — consistent with other agents."""
-    agent = ReportAgent()
-    report_path = agent.run(source, profile, charts, patterns, outliers, insights, recommendations)
     return {
         "summary": f"Report saved to {report_path}.",
         "metrics": {"report_path": report_path},
-        "insights": [f"Full analysis report written to {report_path}."],
+        "insights": [f"Report written to {report_path}."],
         "report_path": report_path,
     }

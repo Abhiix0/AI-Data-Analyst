@@ -1,90 +1,113 @@
-# 📊 AI Data Analyst — Analysis Report
+# AI Data Analyst — Analysis Report
 
-**Generated:** 2026-03-06 22:25:22
-**Dataset:** `test_data.csv`
+**Generated:** 2026-03-19 19:16:24
+**Dataset:** `kaggle_downloads/WA_Fn-UseC_-Telco-Customer-Churn.csv`
 
 ---
 ## 1. Dataset Overview
 
 | Metric | Value |
 |--------|-------|
-| Rows | 201 |
-| Columns | 4 |
-| Duplicate Rows | 1 |
+| Rows | 7,043 |
+| Columns | 21 |
+| Duplicate Rows | 0 |
+| Missing Columns | 1 |
+| Outlier Columns | 1 |
+
+**Dataset Summary:** Dataset 'WA_Fn-UseC_-Telco-Customer-Churn' with 7,043 rows and 21 columns.
 
 ### Column Types
 
 | Column | Type |
 |--------|------|
-| age | float64 |
-| salary | float64 |
-| department | str |
-| rating | float64 |
+| customerID | str |
+| gender | str |
+| SeniorCitizen | int64 |
+| Partner | str |
+| Dependents | str |
+| tenure | int64 |
+| PhoneService | str |
+| MultipleLines | str |
+| InternetService | str |
+| OnlineSecurity | str |
+| OnlineBackup | str |
+| DeviceProtection | str |
+| TechSupport | str |
+| StreamingTV | str |
+| StreamingMovies | str |
+| Contract | str |
+| PaperlessBilling | str |
+| PaymentMethod | str |
+| MonthlyCharges | float64 |
+| TotalCharges | float64 |
+| Churn | str |
 
 ---
-## 2. Data Quality Issues
+## 2. Data Quality
 
 ### Missing Values
 
 | Column | Missing Count | Missing % |
 |--------|--------------|-----------|
-| age | 1 | 0.5% |
-| salary | 2 | 1.0% |
+| TotalCharges | 11 | 0.16% |
 
-⚠️ **1 duplicate row(s)** found in the dataset.
+### Outliers
+
+| Column | Count | % | Lower Bound | Upper Bound |
+|--------|-------|---|-------------|-------------|
+| SeniorCitizen | 1142 | 16.21% | 0.0 | 0.0 |
+
+### Strong Correlations (|r| >= 0.7)
+
+| Column A | Column B | r | Direction |
+|----------|----------|---|-----------|
+| tenure | TotalCharges | 0.8259 | positive |
 
 ---
 ## 3. Key Insights
 
-1. The missing age value represents 0.5% of the total, suggesting a negligible impact on overall analysis, but potentially requiring imputation or interpolation to ensure complete data.
-2. The mean salary in the department "HR" is significantly lower than in "Engineering" (average 85341.5 vs 115245.5), indicating a potential compensation disparity between roles.
-3. The correlation between age and rating reveals a moderate positive correlation (0.37), suggesting that employees tend to have higher ratings as they get older, but this relationship may be influenced by other factors.
-4. The department "Sales" has the highest average rating (3.45), implying that employees in this department may be more satisfied with their work environment or overall job performance.
-5. The distribution of salaries is skewed to the right, with the median salary (93441.5) being significantly lower than the mean, indicating that there may be a few high earners driving up the average.
-6. The rating distribution is bimodal, with peaks around 1.5 and 3.5, suggesting that employees may be more likely to rate their experience as average or poor, rather than excellent.
-7. The missing salary values (2 out of 200) may be an indication of data entry errors or missing information, rather than a systematic issue, and could be addressed through data cleaning or imputation.
-8. The relationship between department and salary reveals a significant difference between "HR" and "Engineering", with "HR" having a lower average salary, potentially indicating a disparity in compensation or benefits between these roles.
+1. Claude unavailable: Gemini API call failed: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-2.0-flash\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-2.0-flash\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-2.0-flash\nPlease retry in 37.466021233s.', 'status': 'RESOURCE_EXHAUSTED', 'details': [{'@type': 'type.googleapis.com/google.rpc.Help', 'links': [{'description': 'Learn more about Gemini API quotas', 'url': 'https://ai.google.dev/gemini-api/docs/rate-limits'}]}, {'@type': 'type.googleapis.com/google.rpc.QuotaFailure', 'violations': [{'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_input_token_count', 'quotaId': 'GenerateContentInputTokensPerModelPerMinute-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-2.0-flash'}}, {'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier', 'quotaDimensions': {'model': 'gemini-2.0-flash', 'location': 'global'}}, {'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerDayPerProjectPerModel-FreeTier', 'quotaDimensions': {'model': 'gemini-2.0-flash', 'location': 'global'}}]}, {'@type': 'type.googleapis.com/google.rpc.RetryInfo', 'retryDelay': '37s'}]}}
 
 ---
-## 4. Outlier Analysis
+## 4. Recommendations
 
-✅ No significant outliers detected.
+1. Claude unavailable: Gemini API call failed: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-2.0-flash\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-2.0-flash\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-2.0-flash\nPlease retry in 37.318159847s.', 'status': 'RESOURCE_EXHAUSTED', 'details': [{'@type': 'type.googleapis.com/google.rpc.Help', 'links': [{'description': 'Learn more about Gemini API quotas', 'url': 'https://ai.google.dev/gemini-api/docs/rate-limits'}]}, {'@type': 'type.googleapis.com/google.rpc.QuotaFailure', 'violations': [{'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_input_token_count', 'quotaId': 'GenerateContentInputTokensPerModelPerMinute-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-2.0-flash'}}, {'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-2.0-flash'}}, {'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerDayPerProjectPerModel-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-2.0-flash'}}]}, {'@type': 'type.googleapis.com/google.rpc.RetryInfo', 'retryDelay': '37s'}]}}
 
 ---
 ## 5. Visualizations
 
-### hist_age.png
-![hist_age.png](../charts/hist_age.png)
+### hist_SeniorCitizen.png
+![hist_SeniorCitizen.png](../charts/hist_SeniorCitizen.png)
 
-### hist_salary.png
-![hist_salary.png](../charts/hist_salary.png)
+### hist_TotalCharges.png
+![hist_TotalCharges.png](../charts/hist_TotalCharges.png)
 
-### hist_rating.png
-![hist_rating.png](../charts/hist_rating.png)
+### hist_tenure.png
+![hist_tenure.png](../charts/hist_tenure.png)
 
-### box_age.png
-![box_age.png](../charts/box_age.png)
+### hist_MonthlyCharges.png
+![hist_MonthlyCharges.png](../charts/hist_MonthlyCharges.png)
 
-### box_salary.png
-![box_salary.png](../charts/box_salary.png)
+### box_SeniorCitizen.png
+![box_SeniorCitizen.png](../charts/box_SeniorCitizen.png)
 
-### box_rating.png
-![box_rating.png](../charts/box_rating.png)
+### scatter_tenure_vs_TotalCharges.png
+![scatter_tenure_vs_TotalCharges.png](../charts/scatter_tenure_vs_TotalCharges.png)
+
+### scatter_MonthlyCharges_vs_TotalCharges.png
+![scatter_MonthlyCharges_vs_TotalCharges.png](../charts/scatter_MonthlyCharges_vs_TotalCharges.png)
 
 ### correlation_heatmap.png
 ![correlation_heatmap.png](../charts/correlation_heatmap.png)
 
-### bar_department.png
-![bar_department.png](../charts/bar_department.png)
+### bar_gender.png
+![bar_gender.png](../charts/bar_gender.png)
 
----
-## 6. Recommendations
+### bar_Partner.png
+![bar_Partner.png](../charts/bar_Partner.png)
 
-1. Impute missing age values using mean imputation, ensuring minimal impact on overall analysis.
-2. Remove the duplicate row to maintain data integrity and prevent inaccurate insights.
-3. Create a new categorical feature "department_rating" by combining the "department" and "rating" columns, providing a more comprehensive view of employee satisfaction.
-4. Analyze the correlation between "age" and "rating" further, exploring potential causal relationships and developing a strategy to improve employee satisfaction.
-5. Implement mean imputation for missing salary values, addressing the 1% missing data issue and ensuring accurate analysis.
-6. Transform the "salary" column using the natural logarithm to reduce the impact of extreme values and improve model performance.
-7. Develop a compensation strategy to address the significant difference in mean salary between the "HR" and "Engineering" departments, ensuring fair compensation practices.
-8. Implement a machine learning model to predict employee satisfaction based on the transformed "salary" and "department" features, prioritizing the "Sales" department with the highest average rating.
+### bar_Dependents.png
+![bar_Dependents.png](../charts/bar_Dependents.png)
+
+### bar_PhoneService.png
+![bar_PhoneService.png](../charts/bar_PhoneService.png)

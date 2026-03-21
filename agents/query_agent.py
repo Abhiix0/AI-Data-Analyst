@@ -1,183 +1,70 @@
-"""Natural Language Query Agent — ask questions about a DataFrame.
-
-This agent:
-- takes a natural language question,
-- asks the LLM to generate a pandas expression using the variable name `df`,
-- safely evaluates the expression,
-- asks the LLM to explain the result in simple language,
-- returns a structured answer dictionary.
-"""
-
+"""Query Agent — answers natural language questions about the dataset."""
 from __future__ import annotations
-
-from typing import Any, Dict, Optional
-
+from typing import Any, Dict, Optional, List
 import json
-
 import pandas as pd
-
 from llm.claude_client import generate, LLMUnavailableError, DEFAULT_MODEL
-from llm.prompts import (
-    QUERY_GENERATION_SYSTEM_PROMPT,
-    query_generation_prompt,
-    query_explanation_prompt,
-)
+from llm.prompts import QUERY_SYSTEM_PROMPT, query_prompt
 
-
-_BANNED_TOKENS = [
-    "import",
-    "exec",
-    "eval",
-    "open(",
-    "os.",
-    "sys.",
-    "subprocess",
-    "__",
-    "builtins",
-    "globals(",
-    "locals(",
-    "compile(",
+_BANNED = [
+    "import", "exec", "eval", "open(", "os.", "sys.", "subprocess",
+    "__", "builtins", "globals(", "locals(", "compile(",
 ]
 
 
-def execute_pandas_query(df: pd.DataFrame, query_string: str) -> Any:
-    """Safely evaluate a pandas expression against the provided DataFrame.
-
-    Only expressions that reference the variable `df` are allowed. Obvious
-    dangerous constructs (imports, filesystem access, process control, etc.)
-    are blocked via simple string checks before using a restricted `eval`.
-    """
-    text = query_string.strip()
-
-    if "df" not in text:
-        raise ValueError("Generated query does not reference 'df'.")
-
-    # Disallow assignments and other statements; require a pure expression.
-    if "=" in text:
-        raise ValueError("Assignments are not allowed in queries.")
-
-    lowered = text.lower()
-    for token in _BANNED_TOKENS:
-        if token in lowered:
-            raise ValueError(f"Disallowed token in query: {token!r}")
-
-    # Evaluate with no builtins and only `df` in the local scope.
-    safe_globals = {"__builtins__": {}}
-    safe_locals = {"df": df}
-
-    return eval(text, safe_globals, safe_locals)  # noqa: S307
+def _safe_eval(df: pd.DataFrame, expr: str) -> Any:
+    expr = expr.strip().replace("```", "").strip()
+    if "df" not in expr:
+        raise ValueError("Expression must reference 'df'.")
+    if "=" in expr:
+        raise ValueError("Assignments not allowed.")
+    for token in _BANNED:
+        if token in expr.lower():
+            raise ValueError(f"Disallowed token: {token!r}")
+    return eval(expr, {"__builtins__": {}}, {"df": df})
 
 
-def _format_result_for_llm(result: Any) -> str:
-    """Create a compact, serializable preview of the query result for the LLM."""
+def _fmt(result: Any) -> str:
     if isinstance(result, pd.DataFrame):
-        preview = result.head(5).to_dict(orient="records")
-    elif isinstance(result, pd.Series):
-        preview = result.head(10).to_dict()
-    else:
-        # Fallback for scalars or other objects
-        preview = result
-
-    return json.dumps(preview, indent=2, default=str)
-
-
-def _count_rows(result: Any) -> int:
-    """Best-effort count of result rows for metrics."""
-    if isinstance(result, pd.DataFrame):
-        return int(len(result))
+        return json.dumps(result.head(5).to_dict(orient="records"), indent=2, default=str)
     if isinstance(result, pd.Series):
-        return int(len(result))
-    if isinstance(result, (list, tuple, set)):
-        return len(result)
-    return 1
+        return json.dumps(result.head(10).to_dict(), indent=2, default=str)
+    return json.dumps(result, indent=2, default=str)
 
 
 def answer_query(
     df: pd.DataFrame,
     question: str,
-    dataset_context: Optional[Dict[str, Any]] = None,
+    context: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Answer a natural language question about the dataset.
-
-    Returns a standard agent dictionary:
-
-    {
-        "summary": "answer to the user's question",
-        "metrics": {
-            "rows_returned": ...
-        },
-        "insights": [
-            "Generated pandas query: ...",
-            "Result explanation: ..."
-        ]
+    ctx = {
+        "summary": context.get("summary", "") if context else "",
+        "columns": list(df.columns),
+        "shape": list(df.shape),
     }
-    """
-    # Include lightweight dataset context to help query generation.
-    context_for_prompt: Dict[str, Any] = {}
-    if dataset_context:
-        context_for_prompt["dataset_summary"] = dataset_context.get("summary")
-        metrics = dataset_context.get("metrics") or {}
-        context_for_prompt["columns"] = metrics.get("columns")
-
-    context_text = json.dumps(context_for_prompt, indent=2, default=str)
-
     try:
-        # 1) Ask LLM to generate a pandas expression.
-        generation_prompt = query_generation_prompt(question, context_text)
-        raw_query = generate(
-            prompt=generation_prompt,
+        raw_expr = generate(
+            prompt=query_prompt(question, json.dumps(ctx, default=str)),
             model=DEFAULT_MODEL,
-            system_prompt=QUERY_GENERATION_SYSTEM_PROMPT,
+            system_prompt=QUERY_SYSTEM_PROMPT,
+            max_tokens=256,
         )
-        # Use the first non-empty line, strip potential markdown fences just in case.
-        lines = [ln.strip() for ln in raw_query.splitlines() if ln.strip()]
-        if not lines:
-            raise ValueError("LLM did not return a query expression.")
-        query_expr = lines[0]
-        query_expr = query_expr.replace("```", "").strip()
-
-        # 2) Execute the generated query safely.
-        result = execute_pandas_query(df, query_expr)
-        rows_returned = _count_rows(result)
-
-        # 3) Ask LLM to explain the result.
-        result_preview = _format_result_for_llm(result)
-        explanation_prompt = query_explanation_prompt(question, result_preview)
+        expr = [l.strip() for l in raw_expr.splitlines() if l.strip()][0]
+        result = _safe_eval(df, expr)
+        result_str = _fmt(result)
         explanation = generate(
-            prompt=explanation_prompt,
+            prompt=f'User asked: "{question}"\n\nQuery result:\n{result_str}\n\nExplain in 1-3 sentences for a non-technical reader.',
             model=DEFAULT_MODEL,
-            system_prompt=None,
-        ).strip()
-
-        summary = explanation or "Query executed successfully."
-        insights = [
-            f"Generated pandas query: {query_expr}",
-            f"Result explanation: {summary}",
-        ]
-
+            max_tokens=256,
+        )
         return {
-            "summary": summary,
-            "metrics": {"rows_returned": rows_returned},
-            "insights": insights,
+            "summary": explanation.strip(),
+            "metrics": {"rows_returned": len(result) if hasattr(result, "__len__") else 1},
+            "insights": [f"Query: {expr}", f"Answer: {explanation.strip()}"],
         }
-
-    except (LLMUnavailableError, ValueError) as e:
-        # Either query generation failed or the expression was unsafe.
-        msg = f"Unable to run the query safely: {e}"
+    except Exception as e:
         return {
-            "summary": msg,
+            "summary": f"Could not answer: {e}",
             "metrics": {"rows_returned": 0},
-            "insights": [
-                "No query was executed due to validation or LLM issues."
-            ],
+            "insights": [],
         }
-    except Exception as e:  # pragma: no cover - defensive catch-all
-        msg = f"An error occurred while executing the query: {e}"
-        return {
-            "summary": msg,
-            "metrics": {"rows_returned": 0},
-            "insights": [
-                "The generated query could not be executed successfully."
-            ],
-        }
-
