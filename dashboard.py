@@ -51,8 +51,9 @@ st.markdown("""
         font-weight: 500;
     }
     .stTabs [aria-selected="true"] {
-        background-color: #2d2f3e !important;
+        background-color: transparent !important;
         color: #ffffff !important;
+        border-bottom: 2px solid #4f8ef7 !important;
     }
     .insight-card {
         background-color: #1a1d27;
@@ -100,6 +101,39 @@ st.markdown("""
     hr { border-color: #2d2f3e; }
     [data-testid="stDataFrame"] { border-radius: 8px; }
     footer { visibility: hidden; }
+
+    /* Fade-in for main content area */
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(6px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+    .main .block-container {
+        animation: fadeIn 0.4s ease both;
+    }
+
+    /* Feature cards on empty state */
+    .feature-card {
+        background-color: #1a1d27;
+        border: 1px solid #2d2f3e;
+        border-radius: 12px;
+        padding: 22px 20px;
+        margin-bottom: 12px;
+        transition: border-color 0.2s ease;
+        height: 100%;
+    }
+    .feature-card:hover { border-color: #4f8ef7; }
+    .feature-card .fc-icon { font-size: 2rem; margin-bottom: 10px; }
+    .feature-card .fc-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #e0e0e0;
+        margin-bottom: 4px;
+    }
+    .feature-card .fc-desc {
+        font-size: 0.875rem;
+        color: #8b8fa8;
+        line-height: 1.5;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -260,14 +294,38 @@ with st.sidebar:
 
 # ── Empty state ──────────────────────────────────────────────────
 if st.session_state.ctx is None:
-    st.markdown("# AI Data Analyst")
-    st.markdown("#### Drop any dataset. Get a complete AI-powered analysis in seconds.")
-    st.markdown("")
-    c1, c2, c3, c4 = st.columns(4)
-    c1.markdown("**📋 Overview**\nDataset structure, shape, and preview")
-    c2.markdown("**🔍 Data Quality**\nMissing values, duplicates, outliers")
-    c3.markdown("**💡 AI Insights**\nLLM-generated findings from your data")
-    c4.markdown("**📈 Charts**\nInteractive visualizations auto-generated")
+    st.markdown(
+        "<h1 style='text-align:center; margin-top: 2rem;'>AI Data Analyst</h1>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        "<p style='text-align:center; color:#8b8fa8; font-size:1.1rem; margin-bottom:2.5rem;'>"
+        "Drop any dataset. Get a complete AI-powered analysis in seconds.</p>",
+        unsafe_allow_html=True,
+    )
+
+    def _feature_card(icon: str, title: str, desc: str) -> str:
+        return (
+            f'<div class="feature-card">'
+            f'<div class="fc-icon">{icon}</div>'
+            f'<div class="fc-title">{title}</div>'
+            f'<div class="fc-desc">{desc}</div>'
+            f'</div>'
+        )
+
+    row1 = st.columns(2)
+    row1[0].markdown(_feature_card("📋", "Dataset Profiling", "Shape, types, missing values, duplicates, stats"), unsafe_allow_html=True)
+    row1[1].markdown(_feature_card("📈", "Interactive Charts", "Histograms, scatter plots, heatmaps — auto-generated"), unsafe_allow_html=True)
+
+    row2 = st.columns(2)
+    row2[0].markdown(_feature_card("💡", "AI Insights", "LLM-generated findings referencing actual numbers"), unsafe_allow_html=True)
+    row2[1].markdown(_feature_card("💬", "Ask AI", "Chat with your data after analysis"), unsafe_allow_html=True)
+
+    st.markdown(
+        "<p style='text-align:center; color:#555870; font-size:0.82rem; margin-top:1.5rem;'>"
+        "Supports CSV, Excel &nbsp;·&nbsp; Powered by Groq</p>",
+        unsafe_allow_html=True,
+    )
     st.stop()
 
 # ── Main dashboard ───────────────────────────────────────────────
