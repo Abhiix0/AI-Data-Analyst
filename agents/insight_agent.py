@@ -25,7 +25,7 @@ def _rule_based_insights(profile: dict) -> List[str]:
     return profile.get("highlights", ["Dataset loaded successfully."])
 
 
-def run(ctx: AnalysisContext) -> List[str]:
+def run(ctx: AnalysisContext, model: str = "llama-3.1-8b-instant") -> List[str]:
     """Returns list of insight strings."""
     if not ctx.profile:
         return ["Dataset loaded. Run profiling to generate insights."]
@@ -55,6 +55,7 @@ def run(ctx: AnalysisContext) -> List[str]:
     try:
         raw = generate(
             prompt=prompt,
+            model=model,
             system_prompt=INSIGHT_SYSTEM_PROMPT,
             max_tokens=2048,
         )

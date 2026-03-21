@@ -4,6 +4,7 @@ import os
 import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import json
 import tempfile
 import streamlit as st
 import pandas as pd
@@ -14,6 +15,8 @@ load_dotenv()
 
 from orchestrator import run_pipeline
 from core.context import AnalysisContext
+from llm.groq_client import generate, LLMUnavailableError
+from llm.prompts import CHAT_SYSTEM_PROMPT, chat_prompt
 
 # ── Page config ──────────────────────────────────────────────────
 st.set_page_config(
@@ -26,24 +29,17 @@ st.set_page_config(
 # ── Custom CSS ───────────────────────────────────────────────────
 st.markdown("""
 <style>
-    /* Main background */
     .stApp { background-color: #0f1117; }
-
-    /* Sidebar */
     [data-testid="stSidebar"] {
         background-color: #1a1d27;
         border-right: 1px solid #2d2f3e;
     }
-
-    /* Metric cards */
     [data-testid="metric-container"] {
         background-color: #1a1d27;
         border: 1px solid #2d2f3e;
         border-radius: 10px;
         padding: 16px;
     }
-
-    /* Tab styling */
     .stTabs [data-baseweb="tab-list"] {
         background-color: #1a1d27;
         border-radius: 10px;
@@ -58,8 +54,6 @@ st.markdown("""
         background-color: #2d2f3e !important;
         color: #ffffff !important;
     }
-
-    /* Insight cards */
     .insight-card {
         background-color: #1a1d27;
         border-left: 4px solid #4f8ef7;
@@ -70,8 +64,6 @@ st.markdown("""
         line-height: 1.6;
         color: #e0e0e0;
     }
-
-    /* Recommendation cards */
     .rec-card-info {
         background-color: #1a1d27;
         border-left: 4px solid #4f8ef7;
@@ -96,8 +88,6 @@ st.markdown("""
         margin-bottom: 10px;
         color: #e0e0e0;
     }
-
-    /* Section headers */
     .section-header {
         font-size: 1.1rem;
         font-weight: 600;
@@ -107,14 +97,8 @@ st.markdown("""
         margin-bottom: 16px;
         margin-top: 8px;
     }
-
-    /* Divider */
     hr { border-color: #2d2f3e; }
-
-    /* Dataframes */
     [data-testid="stDataFrame"] { border-radius: 8px; }
-
-    /* Hide default Streamlit footer */
     footer { visibility: hidden; }
 </style>
 """, unsafe_allow_html=True)
@@ -122,6 +106,10 @@ st.markdown("""
 # ── Session state ────────────────────────────────────────────────
 if "ctx" not in st.session_state:
     st.session_state.ctx = None
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+if "model" not in st.session_state:
+    st.session_state.model = "llama-3.1-8b-instant"
 
 # ── Helpers ──────────────────────────────────────────────────────
 def save_upload(uploaded_file) -> str:
@@ -130,13 +118,11 @@ def save_upload(uploaded_file) -> str:
     path = os.path.join(tmp, uploaded_file.name)
     with open(path, "wb") as f:
         f.write(uploaded_file.getbuffer())
-    # Register cleanup so temp dir is deleted when the process exits
     atexit.register(shutil.rmtree, tmp, ignore_errors=True)
     return path
 
 
 def _rec_severity(rec: str) -> str:
-    """Classify recommendation severity by keywords."""
     rec_lower = rec.lower()
     critical_kws = ["drop", "remove", "critical", "severe", "corrupt", "invalid"]
     warning_kws = ["missing", "outlier", "imbalance", "skew", "duplicate", "impute"]
@@ -148,82 +134,53 @@ def _rec_severity(rec: str) -> str:
 
 
 def _make_plotly_histogram(df: pd.DataFrame, col: str):
-    fig = px.histogram(
-        df, x=col, nbins=40,
-        title=f"Distribution: {col}",
-        color_discrete_sequence=["#4f8ef7"],
-    )
-    fig.update_layout(
-        paper_bgcolor="#1a1d27", plot_bgcolor="#1a1d27",
-        font_color="#e0e0e0", title_font_size=14,
-        margin=dict(t=40, b=20, l=20, r=20),
-    )
+    fig = px.histogram(df, x=col, nbins=40, title=f"Distribution: {col}",
+                       color_discrete_sequence=["#4f8ef7"])
+    fig.update_layout(paper_bgcolor="#1a1d27", plot_bgcolor="#1a1d27",
+                      font_color="#e0e0e0", title_font_size=14,
+                      margin=dict(t=40, b=20, l=20, r=20))
     return fig
 
 
 def _make_plotly_box(df: pd.DataFrame, col: str):
-    fig = px.box(
-        df, y=col, title=f"Outliers: {col}",
-        color_discrete_sequence=["#50c878"],
-    )
-    fig.update_layout(
-        paper_bgcolor="#1a1d27", plot_bgcolor="#1a1d27",
-        font_color="#e0e0e0", title_font_size=14,
-        margin=dict(t=40, b=20, l=20, r=20),
-    )
+    fig = px.box(df, y=col, title=f"Outliers: {col}",
+                 color_discrete_sequence=["#50c878"])
+    fig.update_layout(paper_bgcolor="#1a1d27", plot_bgcolor="#1a1d27",
+                      font_color="#e0e0e0", title_font_size=14,
+                      margin=dict(t=40, b=20, l=20, r=20))
     return fig
 
 
 def _make_plotly_scatter(df: pd.DataFrame, col_a: str, col_b: str, r: float):
-    fig = px.scatter(
-        df, x=col_a, y=col_b,
-        title=f"{col_a} vs {col_b} (r={r})",
-        opacity=0.5,
-        color_discrete_sequence=["#f74f9a"],
-    )
-    fig.update_layout(
-        paper_bgcolor="#1a1d27", plot_bgcolor="#1a1d27",
-        font_color="#e0e0e0", title_font_size=14,
-        margin=dict(t=40, b=20, l=20, r=20),
-    )
+    fig = px.scatter(df, x=col_a, y=col_b, title=f"{col_a} vs {col_b} (r={r})",
+                     opacity=0.5, color_discrete_sequence=["#f74f9a"])
+    fig.update_layout(paper_bgcolor="#1a1d27", plot_bgcolor="#1a1d27",
+                      font_color="#e0e0e0", title_font_size=14,
+                      margin=dict(t=40, b=20, l=20, r=20))
     return fig
 
 
 def _make_plotly_heatmap(df: pd.DataFrame, numeric_cols: list):
     corr = df[numeric_cols].corr()
     fig = go.Figure(data=go.Heatmap(
-        z=corr.values,
-        x=corr.columns.tolist(),
-        y=corr.columns.tolist(),
-        colorscale="RdBu",
-        zmid=0,
-        text=corr.round(2).values,
-        texttemplate="%{text}",
-        textfont={"size": 10},
+        z=corr.values, x=corr.columns.tolist(), y=corr.columns.tolist(),
+        colorscale="RdBu", zmid=0,
+        text=corr.round(2).values, texttemplate="%{text}", textfont={"size": 10},
     ))
-    fig.update_layout(
-        title="Correlation Heatmap",
-        paper_bgcolor="#1a1d27", plot_bgcolor="#1a1d27",
-        font_color="#e0e0e0", title_font_size=14,
-        margin=dict(t=40, b=20, l=20, r=20),
-    )
+    fig.update_layout(title="Correlation Heatmap", paper_bgcolor="#1a1d27",
+                      plot_bgcolor="#1a1d27", font_color="#e0e0e0", title_font_size=14,
+                      margin=dict(t=40, b=20, l=20, r=20))
     return fig
 
 
 def _make_plotly_bar(df: pd.DataFrame, col: str):
     counts = df[col].value_counts().head(15)
-    fig = px.bar(
-        x=counts.index.astype(str), y=counts.values,
-        title=f"Value Counts: {col}",
-        color_discrete_sequence=["#f7a94f"],
-        labels={"x": col, "y": "Count"},
-    )
-    fig.update_layout(
-        paper_bgcolor="#1a1d27", plot_bgcolor="#1a1d27",
-        font_color="#e0e0e0", title_font_size=14,
-        margin=dict(t=40, b=20, l=20, r=20),
-        xaxis_tickangle=-30,
-    )
+    fig = px.bar(x=counts.index.astype(str), y=counts.values,
+                 title=f"Value Counts: {col}", color_discrete_sequence=["#f7a94f"],
+                 labels={"x": col, "y": "Count"})
+    fig.update_layout(paper_bgcolor="#1a1d27", plot_bgcolor="#1a1d27",
+                      font_color="#e0e0e0", title_font_size=14,
+                      margin=dict(t=40, b=20, l=20, r=20), xaxis_tickangle=-30)
     return fig
 
 
@@ -236,15 +193,26 @@ with st.sidebar:
 
     uploaded = st.file_uploader("Choose a file", type=["csv", "xlsx", "xls"], label_visibility="collapsed")
 
+    # Model switcher
+    selected_model = st.selectbox(
+        "LLM Model",
+        options=["llama-3.1-8b-instant", "llama-3.3-70b-versatile", "mixtral-8x7b-32768"],
+        index=["llama-3.1-8b-instant", "llama-3.3-70b-versatile", "mixtral-8x7b-32768"].index(
+            st.session_state.model
+        ),
+    )
+    st.session_state.model = selected_model
+
     if uploaded:
         st.success(f"✅ **{uploaded.name}**")
         st.caption(f"{uploaded.size / 1024:.1f} KB")
         st.markdown("")
 
         if st.button("🚀 Run Analysis", type="primary", use_container_width=True):
-            st.session_state.ctx = None   # clear stale state immediately
+            st.session_state.ctx = None
+            st.session_state.chat_history = []
             path = save_upload(uploaded)
-            progress_bar = st.progress(0.03)     # small nonzero value immediately
+            progress_bar = st.progress(0.03)
             status_text = st.empty()
             status_text.caption("⚙️ Loading dataset...")
 
@@ -253,7 +221,7 @@ with st.sidebar:
                 status_text.caption(f"⚙️ {message}")
 
             try:
-                ctx = run_pipeline(path, progress_callback=update_progress)
+                ctx = run_pipeline(path, progress_callback=update_progress, model=st.session_state.model)
                 st.session_state.ctx = ctx
                 progress_bar.progress(1.0)
                 status_text.caption("✅ Analysis complete!")
@@ -271,7 +239,7 @@ with st.sidebar:
         st.info("👆 Upload a file to get started.")
 
     st.markdown("<hr>", unsafe_allow_html=True)
-    st.caption("Powered by Groq · llama-3.1-8b-instant")
+    st.caption(f"Powered by Groq · {st.session_state.model}")
 
 # ── Empty state ──────────────────────────────────────────────────
 if st.session_state.ctx is None:
@@ -291,16 +259,18 @@ df = ctx.df
 profile = ctx.profile
 numeric_cols = list(profile.get("numeric_stats", {}).keys())
 cat_cols = list(profile.get("categorical_stats", {}).keys())
+datetime_stats = profile.get("datetime_stats", {})
 
 st.markdown(f"### 📊 {ctx.file_name}")
 st.caption(ctx.shape_summary())
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📋 Overview",
     "🔍 Data Quality",
     "💡 Insights",
     "📈 Charts",
     "📄 Report",
+    "💬 Ask AI",
 ])
 
 # ── Tab 1: Overview ──────────────────────────────────────────────
@@ -346,6 +316,23 @@ with tab1:
                 "Skew": stats["skew"],
             })
         st.dataframe(pd.DataFrame(stats_rows), use_container_width=True)
+
+    if datetime_stats:
+        st.markdown('<p class="section-header">Datetime Columns</p>', unsafe_allow_html=True)
+        dt_rows = []
+        for col, info in datetime_stats.items():
+            years = round(info["range_days"] / 365.25, 1)
+            dt_rows.append({
+                "Column": col,
+                "Min Date": info["min"],
+                "Max Date": info["max"],
+                "Range (days)": f"{info['range_days']:,}",
+                "Range (years)": years,
+                "Unique Dates": f"{info['unique_dates']:,}",
+                "Null %": f"{info['null_pct']}%",
+                "Time Series?": "✅" if info["is_time_series"] else "—",
+            })
+        st.dataframe(pd.DataFrame(dt_rows), use_container_width=True)
 
 # ── Tab 2: Data Quality ──────────────────────────────────────────
 with tab2:
@@ -404,11 +391,8 @@ with tab2:
 
 # ── Tab 3: Insights ──────────────────────────────────────────────
 with tab3:
-    col_left, col_right = st.columns([3, 1])
-    with col_left:
-        st.markdown(f"### 💡 {len(ctx.insights)} AI-Generated Insights")
-        st.caption("Powered by Groq · llama-3.1-8b-instant")
-
+    st.markdown(f"### 💡 {len(ctx.insights)} AI-Generated Insights")
+    st.caption(f"Powered by Groq · {st.session_state.model}")
     st.markdown("<hr>", unsafe_allow_html=True)
 
     for i, insight in enumerate(ctx.insights, 1):
@@ -437,31 +421,22 @@ with tab4:
     st.caption("Auto-generated based on your dataset's most interesting patterns.")
     st.markdown("<hr>", unsafe_allow_html=True)
 
-    # Histograms
     if numeric_cols:
         st.markdown('<p class="section-header">Distributions</p>', unsafe_allow_html=True)
         cols_to_show = numeric_cols[:6]
         grid = st.columns(2)
         for i, col in enumerate(cols_to_show):
-            grid[i % 2].plotly_chart(
-                _make_plotly_histogram(df, col),
-                use_container_width=True,
-                key=f"hist_{col}",
-            )
+            grid[i % 2].plotly_chart(_make_plotly_histogram(df, col),
+                                     use_container_width=True, key=f"hist_{col}")
 
-    # Outlier box plots
     outlier_cols = list(profile.get("outliers", {}).keys())[:4]
     if outlier_cols:
         st.markdown('<p class="section-header">Outlier Columns</p>', unsafe_allow_html=True)
         grid = st.columns(2)
         for i, col in enumerate(outlier_cols):
-            grid[i % 2].plotly_chart(
-                _make_plotly_box(df, col),
-                use_container_width=True,
-                key=f"box_{col}",
-            )
+            grid[i % 2].plotly_chart(_make_plotly_box(df, col),
+                                     use_container_width=True, key=f"box_{col}")
 
-    # Scatter plots for strong correlations
     strong_pairs = [c for c in profile.get("top_correlations", []) if abs(c["r"]) >= 0.5][:3]
     if strong_pairs:
         st.markdown('<p class="section-header">Correlations</p>', unsafe_allow_html=True)
@@ -471,30 +446,20 @@ with tab4:
             if col_a in df.columns and col_b in df.columns:
                 grid[i % 2].plotly_chart(
                     _make_plotly_scatter(df, col_a, col_b, pair["r"]),
-                    use_container_width=True,
-                    key=f"scatter_{col_a}_{col_b}",
-                )
+                    use_container_width=True, key=f"scatter_{col_a}_{col_b}")
 
-    # Correlation heatmap
     if len(numeric_cols) >= 2:
         st.markdown('<p class="section-header">Correlation Heatmap</p>', unsafe_allow_html=True)
-        st.plotly_chart(
-            _make_plotly_heatmap(df, numeric_cols),
-            use_container_width=True,
-            key="heatmap",
-        )
+        st.plotly_chart(_make_plotly_heatmap(df, numeric_cols),
+                        use_container_width=True, key="heatmap")
 
-    # Bar charts for categoricals
     useful_cat = [c for c in cat_cols if 2 <= profile["categorical_stats"][c]["unique_count"] <= 20][:4]
     if useful_cat:
         st.markdown('<p class="section-header">Categorical Distributions</p>', unsafe_allow_html=True)
         grid = st.columns(2)
         for i, col in enumerate(useful_cat):
-            grid[i % 2].plotly_chart(
-                _make_plotly_bar(df, col),
-                use_container_width=True,
-                key=f"bar_{col}",
-            )
+            grid[i % 2].plotly_chart(_make_plotly_bar(df, col),
+                                     use_container_width=True, key=f"bar_{col}")
 
 # ── Tab 5: Report ────────────────────────────────────────────────
 with tab5:
@@ -517,3 +482,66 @@ with tab5:
         st.markdown(content)
     else:
         st.info("Report not available.")
+
+# ── Tab 6: Ask AI (Chat) ─────────────────────────────────────────
+with tab6:
+    st.markdown("### 💬 Ask AI About Your Dataset")
+    st.caption(f"Ask anything about your data. Powered by Groq · {st.session_state.model}")
+    st.markdown("<hr>", unsafe_allow_html=True)
+
+    # Render chat history
+    for msg in st.session_state.chat_history:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+
+    # Chat input
+    question = st.chat_input("Ask a question about your dataset...")
+
+    if question:
+        # Show user message immediately
+        with st.chat_message("user"):
+            st.markdown(question)
+        st.session_state.chat_history.append({"role": "user", "content": question})
+
+        # Build profile summary for context
+        profile_for_chat = {
+            "shape": profile.get("shape", {}),
+            "highlights": profile.get("highlights", []),
+            "top_correlations": profile.get("top_correlations", [])[:5],
+            "outliers": {k: {"count": v["count"], "pct": v["pct"]}
+                         for k, v in profile.get("outliers", {}).items()},
+            "numeric_stats": {k: {"mean": v["mean"], "median": v["median"],
+                                   "std": v["std"], "min": v["min"], "max": v["max"]}
+                               for k, v in list(profile.get("numeric_stats", {}).items())[:10]},
+            "categorical_stats": {k: {"unique_count": v["unique_count"],
+                                       "top_values": v["top_values"]}
+                                   for k, v in list(profile.get("categorical_stats", {}).items())[:8]},
+            "datetime_stats": profile.get("datetime_stats", {}),
+            "missing": profile.get("missing", {}),
+            "duplicate_rows": profile.get("duplicate_rows", 0),
+        }
+
+        prompt = chat_prompt(
+            question=question,
+            profile_summary=json.dumps(profile_for_chat, indent=2, default=str),
+            insights=ctx.insights,
+            recommendations=ctx.recommendations,
+        )
+
+        with st.chat_message("assistant"):
+            with st.spinner("Thinking..."):
+                try:
+                    answer = generate(
+                        prompt=prompt,
+                        model=st.session_state.model,
+                        system_prompt=CHAT_SYSTEM_PROMPT,
+                        max_tokens=1024,
+                        temperature=0.5,
+                    )
+                except LLMUnavailableError as e:
+                    answer = f"⚠️ LLM unavailable: {e}"
+                except RuntimeError as e:
+                    answer = f"⚠️ Error: {e}"
+            st.markdown(answer)
+
+        st.session_state.chat_history.append({"role": "assistant", "content": answer})

@@ -53,13 +53,14 @@ def _load_dataset(source: str) -> pd.DataFrame:
     raise ValueError(f"Unsupported format '{ext}'. Use .csv, .xlsx, .xls, or kaggle:<ref>")
 
 
-def run_pipeline(source: str, progress_callback=None) -> AnalysisContext:
+def run_pipeline(source: str, progress_callback=None, model: str = "llama-3.1-8b-instant") -> AnalysisContext:
     """Run the full analysis pipeline. Returns a populated AnalysisContext.
 
     Args:
         source: File path or kaggle:<ref>
         progress_callback: Optional callable(step: int, total: int, message: str)
                            Used by dashboard to update progress bar.
+        model: Groq model name to use for LLM agents.
     """
     def _progress(step, msg):
         if progress_callback:
@@ -83,10 +84,10 @@ def run_pipeline(source: str, progress_callback=None) -> AnalysisContext:
     ctx.chart_paths = _safe_run(ctx, "Visualization", run_visualization, df, ctx.profile) or []
 
     _progress(3, "Generating AI insights...")
-    ctx.insights = _safe_run(ctx, "Insights", run_insights, ctx) or ["Analysis complete."]
+    ctx.insights = _safe_run(ctx, "Insights", run_insights, ctx, model=model) or ["Analysis complete."]
 
     _progress(4, "Generating recommendations...")
-    ctx.recommendations = _safe_run(ctx, "Recommendations", run_recommendations, ctx) or []
+    ctx.recommendations = _safe_run(ctx, "Recommendations", run_recommendations, ctx, model=model) or []
 
     _progress(5, "Writing report...")
     ctx.report_path = _safe_run(ctx, "Report", run_report, ctx)

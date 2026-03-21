@@ -13,7 +13,7 @@ class AnalysisContext:
 
     # Agent outputs (populated as pipeline runs)
     profile: Dict[str, Any] = field(default_factory=dict)
-    chart_paths: List[str] = field(default_factory=list)
+    chart_paths: List[Any] = field(default_factory=list)  # List of chart metadata dicts
     patterns: Dict[str, Any] = field(default_factory=dict)
     outliers: Dict[str, Any] = field(default_factory=dict)
     insights: List[str] = field(default_factory=list)

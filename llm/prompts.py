@@ -1,4 +1,4 @@
-"""LLM prompt builders for the Insight and Recommendation agents."""
+"""LLM prompt builders for the Insight, Recommendation, and Chat agents."""
 from __future__ import annotations
 from typing import List
 
@@ -77,3 +77,36 @@ Rules:
 - Each recommendation is 1-2 sentences
 
 RECOMMENDATIONS:""".strip()
+
+
+CHAT_SYSTEM_PROMPT = (
+    "You are a data analyst assistant. You answer questions strictly based on the "
+    "dataset profile, insights, and recommendations provided to you. "
+    "Do NOT invent facts, statistics, or column names that are not present in the provided context. "
+    "If the answer cannot be determined from the provided data, say so clearly. "
+    "Be concise, specific, and reference actual numbers from the profile when relevant."
+)
+
+
+def chat_prompt(
+    question: str,
+    profile_summary: str,
+    insights: List[str],
+    recommendations: List[str],
+) -> str:
+    insights_text = "\n".join(f"- {i}" for i in insights) if insights else "None available."
+    recs_text = "\n".join(f"- {r}" for r in recommendations) if recommendations else "None available."
+    return f"""You have access to the following dataset analysis context. Answer the user's question using ONLY this information.
+
+DATASET PROFILE SUMMARY:
+{profile_summary}
+
+AI-GENERATED INSIGHTS:
+{insights_text}
+
+RECOMMENDATIONS:
+{recs_text}
+
+USER QUESTION: {question}
+
+ANSWER:""".strip()

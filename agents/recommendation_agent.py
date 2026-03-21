@@ -46,7 +46,7 @@ def _rule_based_recommendations(profile: dict) -> List[str]:
     return recs
 
 
-def run(ctx: AnalysisContext) -> List[str]:
+def run(ctx: AnalysisContext, model: str = "llama-3.1-8b-instant") -> List[str]:
     """Returns list of recommendation strings."""
     if not ctx.profile:
         return ["Profiling data unavailable — cannot generate recommendations."]
@@ -70,6 +70,7 @@ def run(ctx: AnalysisContext) -> List[str]:
     try:
         raw = generate(
             prompt=prompt,
+            model=model,
             system_prompt=RECOMMENDATION_SYSTEM_PROMPT,
             max_tokens=2048,
         )

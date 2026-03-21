@@ -91,15 +91,22 @@ def run(ctx: AnalysisContext) -> str:
     lines += ["---", "## 5. Visualizations", ""]
     if ctx.chart_paths:
         lines += [
-            "> 📁 **Note:** Chart images are saved in `outputs/charts/`.",
-            "> To view them, open this report from the project root directory.",
+            f"> 📊 **{len(ctx.chart_paths)} chart(s)** were generated and are visible in the dashboard Charts tab.",
             "",
         ]
-        for path in ctx.chart_paths:
-            name = os.path.basename(path)
-            # Use path relative to project root for portability
-            rel = os.path.join("..", "charts", name).replace("\\", "/")
-            lines += [f"### {name}", f"![{name}]({rel})", ""]
+        for chart in ctx.chart_paths:
+            chart_type = chart.get("type", "chart")
+            if chart_type == "histogram":
+                lines.append(f"- Histogram: `{chart['col']}`")
+            elif chart_type == "box":
+                lines.append(f"- Box plot: `{chart['col']}`")
+            elif chart_type == "scatter":
+                lines.append(f"- Scatter: `{chart['col_a']}` vs `{chart['col_b']}` (r={chart['r']})")
+            elif chart_type == "heatmap":
+                lines.append(f"- Correlation heatmap ({len(chart.get('cols', []))} numeric columns)")
+            elif chart_type == "bar":
+                lines.append(f"- Bar chart: `{chart['col']}`")
+        lines.append("")
     else:
         lines += ["No charts generated.", ""]
 

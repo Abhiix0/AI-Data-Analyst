@@ -86,6 +86,48 @@ def run(df: pd.DataFrame) -> Dict[str, Any]:
             "null_count": int(df[col].isnull().sum()),
         }
 
+    # ── Datetime stats ────────────────────────────────────────────────
+    datetime_stats = {}
+    # Check native datetime columns first
+    dt_cols = list(df.select_dtypes(include=["datetime", "datetimetz"]).columns)
+    # Also try parsing object columns that look like dates
+    for col in cat_df.columns:
+        if col in dt_cols:
+            continue
+        sample = df[col].dropna().head(50)
+        try:
+            parsed_sample = pd.to_datetime(sample, infer_datetime_format=True, errors="coerce")
+            if parsed_sample.notna().mean() >= 0.8:
+                dt_cols.append(col)
+        except Exception:
+            pass
+
+    for col in dt_cols:
+        try:
+            parsed = pd.to_datetime(df[col], errors="coerce")
+            null_count = int(parsed.isna().sum())
+            valid = parsed.dropna()
+            if len(valid) == 0:
+                continue
+            min_date = valid.min()
+            max_date = valid.max()
+            range_days = (max_date - min_date).days
+            unique_dates = int(valid.dt.normalize().nunique())
+            null_pct = round(null_count / rows * 100, 2)
+            # Time series heuristic: sequential-ish dates, low null %
+            is_time_series = null_pct < 10 and unique_dates > rows * 0.5
+            datetime_stats[col] = {
+                "min": str(min_date.date()),
+                "max": str(max_date.date()),
+                "range_days": range_days,
+                "null_count": null_count,
+                "null_pct": null_pct,
+                "unique_dates": unique_dates,
+                "is_time_series": is_time_series,
+            }
+        except Exception:
+            continue
+
     # ── Curated highlights ────────────────────────────────────────────
     highlights = []
     total_missing_cells = sum(v["count"] for v in missing_info.values())
@@ -128,6 +170,15 @@ def run(df: pd.DataFrame) -> Dict[str, Any]:
         elif info["unique_count"] == rows:
             highlights.append(f"Column '{col}' has all unique values — likely an ID column.")
 
+    for col, info in datetime_stats.items():
+        years = round(info["range_days"] / 365.25, 1)
+        highlights.append(
+            f"Column '{col}' spans {years} year(s) from {info['min']} to {info['max']} "
+            f"({info['range_days']:,} days, {info['unique_dates']:,} unique dates)."
+        )
+        if info["is_time_series"]:
+            highlights.append(f"Column '{col}' looks like a time series (sequential dates, {info['null_pct']}% null).")
+
     return {
         "shape": {"rows": rows, "columns": cols},
         "dtypes": {col: str(dtype) for col, dtype in df.dtypes.items()},
@@ -137,5 +188,6 @@ def run(df: pd.DataFrame) -> Dict[str, Any]:
         "top_correlations": top_correlations,
         "outliers": outliers,
         "categorical_stats": categorical_stats,
+        "datetime_stats": datetime_stats,
         "highlights": highlights,
     }

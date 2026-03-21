@@ -6,6 +6,14 @@ A multi-agent data analysis tool that automatically profiles datasets, generates
 
 ---
 
+## Demo
+
+![Dashboard Screenshot](docs/screenshot.png)
+
+> TODO: Add a screenshot of the running dashboard here. Run `streamlit run dashboard.py`, upload a dataset, and capture the result.
+
+---
+
 ## What It Does
 
 | Feature | Description |
@@ -15,6 +23,7 @@ A multi-agent data analysis tool that automatically profiles datasets, generates
 | 🔍 **Outlier Detection** | IQR method across all numeric columns |
 | 💡 **AI Insights** | LLM-generated findings via Groq (free tier) |
 | 🎯 **Recommendations** | Prioritized, actionable suggestions |
+| 💬 **Chat Interface** | Ask free-form questions about your dataset |
 | 📄 **Report Export** | Full markdown report, downloadable from dashboard |
 | 🗂️ **Kaggle Integration** | Fetch datasets directly via Kaggle API |
 
@@ -31,8 +40,12 @@ Dataset Input
       ↓
 Profiling Agent → Visualization Agent → Insight Agent → Recommendation Agent → Report Agent
       ↓
-Streamlit Dashboard
+Streamlit Dashboard (6 tabs: Overview, Data Quality, Insights, Charts, Report, Ask AI)
 ```
+
+## Why This Architecture?
+
+Each agent is a single-responsibility module — profiling never touches LLM calls, and the LLM agents never touch raw data. This separation makes the system easy to test, swap, and extend: you can replace the Groq client with any other LLM provider without touching the agents, or add a new agent (e.g. forecasting) without modifying existing ones. The orchestrator acts as a thin coordinator, which means pipeline failures in one agent are isolated and don't cascade. This design mirrors production ML pipelines and is intentionally resume-worthy because it demonstrates system thinking, not just scripting.
 
 ---
 
@@ -41,7 +54,8 @@ Streamlit Dashboard
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/yourusername/ai-data-analyst
+# TODO: replace "your-github-username" with your actual GitHub username
+git clone https://github.com/your-github-username/ai-data-analyst
 cd ai-data-analyst
 pip install -r requirements.txt
 ```
@@ -103,7 +117,6 @@ ai-data-analyst/
 │   └── prompts.py           # All LLM prompts
 ├── loaders/                 # CSV, Excel, Kaggle loaders
 ├── outputs/
-│   ├── charts/              # Generated chart files
 │   └── reports/             # Markdown reports
 ├── dashboard.py             # Streamlit app (main entry point)
 ├── main.py                  # CLI entry point
@@ -117,8 +130,16 @@ ai-data-analyst/
 Try it with the included samples:
 
 - `kaggle_downloads/WA_Fn-UseC_-Telco-Customer-Churn.csv` — telecom churn data
-- `kaggle_downloads/netflix_titles.csv` — Netflix content catalog
+- `kaggle_downloads/netflix_titles.csv` — Netflix content catalog (has datetime columns)
 - `kaggle_downloads/tested.csv` — Titanic test dataset
+
+---
+
+## Known Limitations
+
+- Outlier detection uses IQR only — no Z-score, isolation forest, or DBSCAN options
+- No time-series forecasting — datetime columns are profiled but not modeled
+- Free-tier Groq rate limits apply — large datasets may hit token limits on the 8b model; switch to a larger model in the sidebar if needed
 
 ---
 
