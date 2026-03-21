@@ -96,7 +96,7 @@ def run(df: pd.DataFrame) -> Dict[str, Any]:
             continue
         sample = df[col].dropna().head(50)
         try:
-            parsed_sample = pd.to_datetime(sample, infer_datetime_format=True, errors="coerce")
+            parsed_sample = pd.to_datetime(sample, errors="coerce")
             if parsed_sample.notna().mean() >= 0.8:
                 dt_cols.append(col)
         except Exception:

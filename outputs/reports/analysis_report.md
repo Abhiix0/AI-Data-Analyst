@@ -1,46 +1,37 @@
 # AI Data Analyst — Analysis Report
 
-**Generated:** 2026-03-21 16:56:01
-**Dataset:** `WA_Fn-UseC_-Telco-Customer-Churn`
+**Generated:** 2026-03-21 17:34:47
+**Dataset:** `netflix_titles`
 
 ---
 ## 1. Dataset Overview
 
 | Metric | Value |
 |--------|-------|
-| Rows | 7,043 |
-| Columns | 21 |
+| Rows | 8,807 |
+| Columns | 12 |
 | Duplicate Rows | 0 |
-| Missing Columns | 1 |
+| Missing Columns | 6 |
 | Outlier Columns | 1 |
 
-**Dataset Summary:** 7,043 rows x 21 columns
+**Dataset Summary:** 8,807 rows x 12 columns
 
 ### Column Types
 
 | Column | Type |
 |--------|------|
-| customerID | object |
-| gender | object |
-| SeniorCitizen | int64 |
-| Partner | object |
-| Dependents | object |
-| tenure | int64 |
-| PhoneService | object |
-| MultipleLines | object |
-| InternetService | object |
-| OnlineSecurity | object |
-| OnlineBackup | object |
-| DeviceProtection | object |
-| TechSupport | object |
-| StreamingTV | object |
-| StreamingMovies | object |
-| Contract | object |
-| PaperlessBilling | object |
-| PaymentMethod | object |
-| MonthlyCharges | float64 |
-| TotalCharges | float64 |
-| Churn | object |
+| show_id | object |
+| type | object |
+| title | object |
+| director | object |
+| cast | object |
+| country | object |
+| date_added | object |
+| release_year | int64 |
+| rating | object |
+| duration | object |
+| listed_in | object |
+| description | object |
 
 ---
 ## 2. Data Quality
@@ -49,87 +40,55 @@
 
 | Column | Missing Count | Missing % |
 |--------|--------------|-----------|
-| TotalCharges | 11 | 0.16% |
+| director | 2,634 | 29.91% |
+| cast | 825 | 9.37% |
+| country | 831 | 9.44% |
+| date_added | 10 | 0.11% |
+| rating | 4 | 0.05% |
+| duration | 3 | 0.03% |
 
 ### Outliers
 
 | Column | Count | % | Lower Bound | Upper Bound |
 |--------|-------|---|-------------|-------------|
-| SeniorCitizen | 1142 | 16.21% | 0.0 | 0.0 |
-
-### Strong Correlations (|r| >= 0.7)
-
-| Column A | Column B | r | Direction |
-|----------|----------|---|-----------|
-| tenure | TotalCharges | 0.8259 | positive |
+| release_year | 719 | 8.16% | 2004.0 | 2028.0 |
 
 ---
 ## 3. Key Insights
 
-1. The dataset contains 11 missing values (0.01% of all cells) across the 'TotalCharges' column, which could lead to biased model predictions if not imputed.
-2. The 'TotalCharges' column has the highest missing value rate at 0.16%, suggesting a potential data quality issue that may impact analysis and model performance.
-3. The strongest correlation in the dataset is between 'tenure' and 'TotalCharges' with an r-value of 0.8259, indicating a strong positive relationship between customer tenure and total charges.
-4. The correlation between 'tenure' and 'MonthlyCharges' is 0.2479, a relatively weak positive relationship compared to the 'tenure' and 'TotalCharges' correlation.
-5. The 'SeniorCitizen' column has 1,142 outliers (16.21% of all values), which could indicate a data quality issue or a demographic characteristic of the customer base.
-6. The mean 'tenure' for customers who are senior citizens is significantly lower (0.1621) than the overall mean 'tenure' of 32.3711, suggesting that senior citizens may be more likely to churn.
-7. The standard deviation of 'MonthlyCharges' is 30.09, indicating a relatively high degree of variability in monthly charges across the customer base.
-8. The skewness of 'TotalCharges' is 0.9616, indicating a right-skewed distribution with a long tail of high values, which could impact model performance and data interpretation.
-9. The 'MonthlyCharges' column has a minimum value of $18.25 and a maximum value of $118.75, suggesting a relatively wide range of monthly charges across the customer base.
-10. The skewness of 'tenure' is 0.2395, indicating a relatively normal distribution of customer tenure with a slight skew towards longer tenures.
-11. The 'customerID' column has 7,043 unique values, indicating that each customer has a unique ID, which could be useful for customer segmentation and personalization.
-12. The 'gender' column has a binary distribution with 3555 customers identified as male and 3488 as female, indicating a relatively balanced distribution of gender across the customer base.
+1. Here are the insights based on the provided dataset:
+2. The 'director' column has the highest rate of missing values at 29.91%, which could indicate a data quality issue and may require manual validation to ensure accuracy in downstream analysis. This issue affects approximately 2,634 rows (29.91% of 8,807).
+3. The 'release_year' column has a high number of outliers (719 or 8.16% of the total) and is also heavily left-skewed (skew=-3.4466), which could impact the accuracy of statistical models relying on this column. The outlier range spans from 1925 to 2028, indicating significant variation in the data.
+4. The 'release_year' column has a mean of 2014.1802 and a median of 2017.0, suggesting that the data may be influenced by a 'long tail' of older releases, which may skew the results of certain analyses.
+5. The 'release_year' and 'director' columns are highly correlated, with 719 outliers in 'release_year' coinciding with a significant number of missing values in 'director' (2,634). This correlation highlights the importance of addressing the missing values in 'director' for more accurate analysis.
+6. The 'date_added' column spans 13.7 years (from 2008-01-01 to 2021-09-25), indicating a significant time trend in the data, and includes 1,699 unique dates. This column could be used to analyze seasonal or temporal patterns in Netflix content releases.
+7. The 'show_id' column has all unique values, which suggests that it is an identifier column and not a categorial variable, as initially assumed. This may impact the interpretation of certain analysis results relying on this column.
+8. The 'cast' column has 2,825 missing values (32.0% of the total), which could indicate data quality issues and may require manual validation to ensure accuracy in downstream analysis. This issue affects approximately 2,825 rows (32.0% of 8,807).
+9. The 'title' column has a unique count of 8,804, indicating that there are relatively few duplicate titles in the dataset. This may be due to Netflix's content strategy focusing on distinct and unique content offerings.
+10. The 'type' column has two distinct categories: 'Movie' (6,131) and 'TV Show' (2,676), which may reflect Netflix's content offerings and could be used to analyze differences in user engagement and viewing habits.
+11. The 'cast' column has 7,692 unique values, indicating a high level of variation in the data. This may be due to the diversity of Netflix's content offerings, including a wide range of actors and actresses.
+12. The 'cast' column, despite having missing values, has a higher unique count (7,692) compared to the 'director' column with missing values (4,528). This may suggest that there are more distinct cast members compared to directors in Netflix's content offerings.
+13. The dataset contains 4,307 missing values (4.08% of all cells) across 6 columns, which could indicate data quality issues and may require manual validation to ensure accuracy in downstream analysis. This issue affects approximately 4,307 rows (4.08% of 8,807).
 
 ---
 ## 4. Recommendations
 
-1. Based on the analysis insights, I recommend the following prioritized, concrete, and actionable recommendations:
-2. Impute the 'TotalCharges' column with a suitable method (e.g., mean, median, regression)**: The high missing value rate (0.16%) and skewness (0.9616) of the 'TotalCharges' column may impact model performance and data interpretation. WHO: Data Engineers; WHAT: Implement imputation method; WHY: To address potential biases and improve model accuracy.
-3. Investigate and address the data quality issue causing the 'SeniorCitizen' outliers (16.21%)**: The large number of outliers in the 'SeniorCitizen' column may indicate a data quality issue or a demographic characteristic of the customer base. WHO: Data Analysts; WHAT: Review data collection processes and interview customers to understand the cause; WHY: To identify and correct errors, and inform targeted marketing strategies.
-4. Explore the relationship between 'tenure' and 'TotalCharges' further**: The strong positive correlation (r=0.8259) between 'tenure' and 'TotalCharges' suggests a promising feature for modeling customer behavior. WHO: Data Scientists; WHAT: Develop a regression model to estimate 'TotalCharges' based on 'tenure'; WHY: To identify drivers of customer spending and inform pricing strategies.
-5. Develop a segmentation strategy based on 'customerID'**: The unique 'customerID' column can be used to segment customers and inform personalization efforts. WHO: Marketing Team; WHAT: Develop a customer segmentation framework; WHY: To target high-value customers and improve customer satisfaction.
-6. Analyze the impact of 'SeniorCitizen' status on customer churn**: The lower mean 'tenure' for senior citizens (0.1621) suggests they may be more likely to churn. WHO: Data Analysts; WHAT: Develop a survival analysis model to estimate churn based on 'SeniorCitizen' status; WHY: To inform targeted retention strategies and reduce churn.
-7. Investigate the variability in 'MonthlyCharges'**: The high standard deviation (30.09) of 'MonthlyCharges' suggests variability in customer spending. WHO: Data Analysts; WHAT: Analyze the distribution of 'MonthlyCharges' and identify drivers of variability; WHY: To inform pricing strategies and reduce customer complaints.
-8. Develop a clustering model to identify groups of customers with similar characteristics**: The strong correlations between 'tenure' and 'TotalCharges', and 'SeniorCitizen' and 'MonthlyCharges', suggest that customers can be grouped based on their characteristics. WHO: Data Scientists; WHAT: Develop a clustering model to identify customer groups; WHY: To inform targeted marketing strategies and improve customer satisfaction.
-9. Monitor and review data quality regularly**: The presence of missing values and outliers in the dataset suggests that data quality is a ongoing concern. WHO: Data Analysts; WHAT: Establish a regular data quality review process; WHY: To prevent errors, ensure data accuracy, and inform business decisions.
+1. Based on the provided dataset insights, here are prioritized, actionable recommendations:
+2. Address missing values in the 'director' column**: WHO: Data engineering team; WHAT: Implement a manual validation process to fill in the missing director values; WHY: The 'director' column has the highest rate of missing values (29.91%), which could impact the accuracy of downstream analysis. This issue needs to be addressed to ensure reliable insights.
+3. Develop a stratified sampling plan to remove outliers in the 'release_year' column**: WHO: Data science team; WHAT: Create a plan to exclude outliers from the 'release_year' column, using a stratified sampling approach to ensure representative data; WHY: The 'release_year' column has a high number of outliers (8.16%) and is heavily left-skewed, which could impact the accuracy of statistical models.
+4. Analyze seasonal and temporal patterns in Netflix content releases using the 'date_added' column**: WHO: Business analysts; WHAT: Develop a time-series analysis to explore seasonal and temporal patterns in content releases; WHY: The 'date_added' column spans 13.7 years and includes 1,699 unique dates, indicating a significant time trend in the data.
+5. Verify the categorial nature of the 'type' column**: WHO: Data quality team; WHAT: Validate the categorial nature of the 'type' column, ensuring it accurately represents content categories (Movie vs. TV Show); WHY: The 'type' column has two distinct categories, which is crucial for analyzing differences in user engagement and viewing habits.
+6. Investigate data quality issues in the 'cast' and 'rating' columns**: WHO: Data engineering team; WHAT: Implement a manual validation process to fill in missing values in the 'cast' and 'rating' columns; WHY: The 'cast' column has a high number of missing values (32.0%), and the 'rating' column is not accounted for in the data quality summary.
+7. Explore the relationship between 'release_year' and 'director' columns**: WHO: Data science team; WHAT: Develop a correlation analysis to understand the relationship between 'release_year' and 'director' columns; WHY: The 'release_year' and 'director' columns are highly correlated, with significant outliers in 'release_year' coinciding with missing values in 'director'.
+8. Consider using the 'show_id' column as a numeric ID**: WHO: Data scientists; WHAT: Explore using the 'show_id' column as a numeric ID for content items; WHY: The 'show_id' column has all unique values, suggesting it is an identifier column and not a categorial variable.
+9. Develop a content strategy report using the 'title' and 'type' columns**: WHO: Business analysts; WHAT: Create a report analyzing content strategies based on title uniqueness and content types (Movie vs. TV Show); WHY: The 'title' column has a unique count of 8,804, and the 'type' column has two distinct categories, which can inform content strategies.
 
 ---
 ## 5. Visualizations
 
-> 📁 **Note:** Chart images are saved in `outputs/charts/`.
-> To view them, open this report from the project root directory.
+> 📊 **4 chart(s)** were generated and are visible in the dashboard Charts tab.
 
-### hist_SeniorCitizen.png
-![hist_SeniorCitizen.png](../charts/hist_SeniorCitizen.png)
-
-### hist_TotalCharges.png
-![hist_TotalCharges.png](../charts/hist_TotalCharges.png)
-
-### hist_tenure.png
-![hist_tenure.png](../charts/hist_tenure.png)
-
-### hist_MonthlyCharges.png
-![hist_MonthlyCharges.png](../charts/hist_MonthlyCharges.png)
-
-### box_SeniorCitizen.png
-![box_SeniorCitizen.png](../charts/box_SeniorCitizen.png)
-
-### scatter_tenure_vs_TotalCharges.png
-![scatter_tenure_vs_TotalCharges.png](../charts/scatter_tenure_vs_TotalCharges.png)
-
-### scatter_MonthlyCharges_vs_TotalCharges.png
-![scatter_MonthlyCharges_vs_TotalCharges.png](../charts/scatter_MonthlyCharges_vs_TotalCharges.png)
-
-### correlation_heatmap.png
-![correlation_heatmap.png](../charts/correlation_heatmap.png)
-
-### bar_gender.png
-![bar_gender.png](../charts/bar_gender.png)
-
-### bar_Partner.png
-![bar_Partner.png](../charts/bar_Partner.png)
-
-### bar_Dependents.png
-![bar_Dependents.png](../charts/bar_Dependents.png)
-
-### bar_PhoneService.png
-![bar_PhoneService.png](../charts/bar_PhoneService.png)
+- Histogram: `release_year`
+- Box plot: `release_year`
+- Bar chart: `type`
+- Bar chart: `rating`

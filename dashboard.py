@@ -184,6 +184,36 @@ def _make_plotly_bar(df: pd.DataFrame, col: str):
     return fig
 
 
+# ── Shared analysis runner ───────────────────────────────────────
+def _run_analysis(source: str) -> None:
+    """Run the pipeline for any source (file path or kaggle:ref) and update session state."""
+    st.session_state.ctx = None
+    st.session_state.chat_history = []
+    progress_bar = st.progress(0.03)
+    status_text = st.empty()
+    status_text.caption("⚙️ Loading dataset...")
+
+    def update_progress(step: int, total: int, message: str):
+        progress_bar.progress(step / total)
+        status_text.caption(f"⚙️ {message}")
+
+    try:
+        ctx = run_pipeline(source, progress_callback=update_progress, model=st.session_state.model)
+        st.session_state.ctx = ctx
+        progress_bar.progress(1.0)
+        status_text.caption("✅ Analysis complete!")
+        st.success(f"✅ {len(ctx.insights)} insights generated!")
+        if ctx.errors:
+            st.markdown("<hr>", unsafe_allow_html=True)
+            with st.expander("⚠️ Pipeline Warnings"):
+                for err in ctx.errors:
+                    st.caption(f"• {err}")
+    except Exception as e:
+        progress_bar.empty()
+        status_text.empty()
+        st.error(f"❌ {e}")
+
+
 # ── Sidebar ──────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("## 📊 AI Data Analyst")
@@ -207,36 +237,23 @@ with st.sidebar:
         st.success(f"✅ **{uploaded.name}**")
         st.caption(f"{uploaded.size / 1024:.1f} KB")
         st.markdown("")
-
         if st.button("🚀 Run Analysis", type="primary", use_container_width=True):
-            st.session_state.ctx = None
-            st.session_state.chat_history = []
-            path = save_upload(uploaded)
-            progress_bar = st.progress(0.03)
-            status_text = st.empty()
-            status_text.caption("⚙️ Loading dataset...")
-
-            def update_progress(step: int, total: int, message: str):
-                progress_bar.progress(step / total)
-                status_text.caption(f"⚙️ {message}")
-
-            try:
-                ctx = run_pipeline(path, progress_callback=update_progress, model=st.session_state.model)
-                st.session_state.ctx = ctx
-                progress_bar.progress(1.0)
-                status_text.caption("✅ Analysis complete!")
-                st.success(f"✅ {len(ctx.insights)} insights generated!")
-                if ctx.errors:
-                    st.markdown("<hr>", unsafe_allow_html=True)
-                    with st.expander("⚠️ Pipeline Warnings"):
-                        for err in ctx.errors:
-                            st.caption(f"• {err}")
-            except Exception as e:
-                progress_bar.empty()
-                status_text.empty()
-                st.error(f"❌ {e}")
+            _run_analysis(save_upload(uploaded))
     else:
         st.info("👆 Upload a file to get started.")
+
+    st.divider()
+
+    kaggle_ref = st.text_input(
+        "Or fetch from Kaggle",
+        placeholder="username/dataset-name",
+        help="Requires KAGGLE_USERNAME and KAGGLE_KEY in your .env file",
+    )
+    if st.button("🔍 Fetch & Analyze", use_container_width=True):
+        if not kaggle_ref or kaggle_ref.count("/") != 1:
+            st.error("Invalid format. Use: username/dataset-name")
+        else:
+            _run_analysis(f"kaggle:{kaggle_ref}")
 
     st.markdown("<hr>", unsafe_allow_html=True)
     st.caption(f"Powered by Groq · {st.session_state.model}")
