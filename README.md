@@ -1,59 +1,56 @@
 # AI Data Analyst
 
-> Drop any dataset. Get a complete AI-powered analysis in seconds.
+> **Drop any dataset. Get a complete AI-powered analysis in seconds.**
 
-A multi-agent data analysis tool built with Python and Streamlit. Upload any CSV or Excel file and get automatic dataset profiling, interactive visualizations, LLM-generated insights, prioritized recommendations, and a downloadable report — no code required.
-
----
+A multi-agent data analysis tool built with **Python + Streamlit**. Upload a CSV/Excel file or fetch a public Kaggle dataset and get profiling, visualizations, AI insights, recommendations, and a downloadable report, with **no code required**.
 
 ## Demo
 
 <img width="1908" height="1044" alt="Demo" src="https://github.com/user-attachments/assets/4f2c6fb3-5303-4f23-96a7-b09726d7d664" />
 
----
-
 ## Features
 
-| | Feature | Description |
-|---|---|---|
-| 📋 | **Dataset Profiling** | Shape, types, missing values, duplicates, correlations, skewness |
-| 📈 | **Interactive Charts** | Histograms, box plots, scatter plots, heatmaps — auto-selected by data type |
-| 🔍 | **Outlier Detection** | IQR method across all numeric columns |
-| 💡 | **AI Insights** | LLM-generated findings via Groq (`llama-3.1-8b-instant`, free tier) |
-| 🎯 | **Recommendations** | Prioritized, actionable suggestions grounded in the data |
-| 💬 | **Ask AI** | Chat interface — ask free-form questions about your dataset |
-| 📅 | **Datetime Detection** | Auto-detects date columns, computes range, flags time-series structure |
-| 📄 | **Report Export** | Full markdown report, downloadable from the dashboard |
-| 🗂️ | **Kaggle Integration** | Fetch any public dataset directly via Kaggle API |
-
----
+* 📋 **Dataset Profiling** — shape, types, missing values, duplicates, correlations, skewness
+* 📈 **Auto Visualizations** — histograms, box plots, scatter plots, heatmaps
+* 🔍 **Outlier Detection** — IQR-based detection across numeric columns
+* 💡 **AI Insights** — LLM-generated findings using Groq
+* 🎯 **Recommendations** — prioritized, data-grounded action items
+* 💬 **Ask AI** — chat with your dataset using natural language
+* 📅 **Datetime Detection** — identifies date columns and time-series structure
+* 📄 **Report Export** — download the complete analysis as Markdown
+* 🗂️ **Kaggle Integration** — load public datasets directly from Kaggle
+* 🛡️ **Fallback Mode** — analysis continues with statistical insights when the LLM is unavailable
 
 ## Architecture
 
-Multi-agent pipeline. Each agent owns one responsibility. A central orchestrator manages execution order and passes a shared `AnalysisContext` object through the pipeline — no agent touches another agent's output directly.
+The system uses a **multi-agent pipeline** with a shared `AnalysisContext`. Each agent owns a single responsibility and communicates through the orchestrator.
 
-```
-User Input (CSV / Excel / Kaggle)
-              ↓
-       [ Orchestrator ]
-              ↓
-  Profiling Agent          →  shape, stats, correlations, outliers, datetime
-  Visualization Agent      →  chart metadata (rendered as Plotly in dashboard)
-  Insight Agent            →  LLM-generated findings via Groq API
-  Recommendation Agent     →  prioritized action items
-  Report Agent             →  markdown report
-              ↓
-  Streamlit Dashboard
-  [ Overview | Data Quality | Insights | Charts | Report | Ask AI ]
+```text
+Dataset
+   ↓
+Orchestrator
+   ├── Profiling Agent
+   ├── Visualization Agent
+   ├── Insight Agent ─────→ Groq LLM
+   ├── Recommendation Agent
+   └── Report Agent
+   ↓
+Streamlit Dashboard
 ```
 
-The LLM agents have a rule-based fallback — if the Groq API is unavailable, the pipeline completes using statistical findings only.
+### Agents
 
----
+| Agent          | Responsibility                                         |
+| -------------- | ------------------------------------------------------ |
+| Profiling      | Statistics, correlations, outliers, datetime detection |
+| Visualization  | Generates chart metadata                               |
+| Insight        | Generates LLM-powered findings                         |
+| Recommendation | Converts findings into actions                         |
+| Report         | Builds the final Markdown report                       |
 
 ## Quick Start
 
-### 1. Clone and install
+### 1. Install
 
 ```bash
 git clone https://github.com/your-github-username/ai-data-analyst
@@ -61,95 +58,64 @@ cd ai-data-analyst
 pip install -r requirements.txt
 ```
 
-### 2. Configure API keys
+### 2. Configure
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env`:
-
 ```env
-GROQ_API_KEY=your_groq_key       # Free at https://console.groq.com
-KAGGLE_USERNAME=your_username    # Optional — only needed for Kaggle datasets
-KAGGLE_KEY=your_kaggle_api_key   # Optional
+GROQ_API_KEY=your_groq_key
+
+# Optional: Kaggle datasets
+KAGGLE_USERNAME=your_username
+KAGGLE_KEY=your_api_key
 ```
 
-### 3. Run the dashboard
+### 3. Run
 
 ```bash
 streamlit run dashboard.py
 ```
 
-### 4. Or use the CLI
+Or use the CLI:
 
 ```bash
-python main.py path/to/dataset.csv
+python main.py dataset.csv
 python main.py kaggle:username/dataset-name
 ```
 
----
-
 ## Tech Stack
 
-- **Python 3.10+**
-- **pandas / numpy** — data processing and statistical profiling
-- **Plotly** — interactive dashboard charts
-- **Groq API** (`llama-3.1-8b-instant`) — LLM-powered insights
-- **Streamlit** — dashboard UI
-- **Kaggle API** — dataset fetching
-
----
+**Python** · **pandas** · **NumPy** · **Plotly** · **Streamlit** · **Groq API** · **Kaggle API**
 
 ## Project Structure
 
-```
+```text
 ai-data-analyst/
-├── agents/
-│   ├── profiling_agent.py       # Stats, correlations, outliers, datetime detection
-│   ├── visualization_agent.py   # Chart metadata generation
-│   ├── insight_agent.py         # Groq LLM insight generation
-│   ├── recommendation_agent.py  # Actionable recommendations
-│   └── report_agent.py          # Markdown report assembly
-├── core/
-│   └── context.py               # Shared AnalysisContext dataclass
-├── llm/
-│   ├── groq_client.py           # Groq API wrapper
-│   └── prompts.py               # All LLM prompt builders
-├── loaders/
-│   ├── csv_loader.py
-│   ├── excel_loader.py
-│   └── kaggle_loader.py
-├── outputs/
-│   └── reports/                 # Generated markdown reports
-├── dashboard.py                 # Streamlit app — main entry point
-├── main.py                      # CLI entry point
-├── orchestrator.py              # Pipeline controller
-├── requirements.txt
-└── .env.example
+├── agents/                 # Analysis agents
+├── core/                   # Shared AnalysisContext
+├── llm/                    # Groq client + prompts
+├── loaders/                # CSV, Excel, Kaggle loaders
+├── outputs/reports/        # Generated reports
+├── dashboard.py            # Streamlit dashboard
+├── main.py                 # CLI entry point
+└── orchestrator.py         # Pipeline controller
 ```
-
----
 
 ## Sample Datasets
 
-Three datasets are included to test with immediately:
+Included datasets:
 
-| File | Description |
-|---|---|
-| `kaggle_downloads/WA_Fn-UseC_-Telco-Customer-Churn.csv` | Telecom churn — good for classification insights |
-| `kaggle_downloads/netflix_titles.csv` | Netflix catalog — triggers datetime detection |
-| `kaggle_downloads/tested.csv` | Titanic test set — clean numeric + categorical mix |
+* `WA_Fn-UseC_-Telco-Customer-Churn.csv`
+* `netflix_titles.csv`
+* `tested.csv`
 
----
+## Limitations
 
-## Known Limitations
-
-- Outlier detection uses IQR only — no Z-score, Isolation Forest, or DBSCAN
-- Datetime columns are profiled and described but not modeled or forecasted
-- Free-tier Groq rate limits apply — on very large datasets, switch to `llama-3.3-70b-versatile` in the model selector if the 8b model truncates output
-
----
+* Outlier detection currently uses IQR only
+* Datetime columns are analyzed but not forecasted
+* Groq free-tier rate limits apply
 
 ## License
 
