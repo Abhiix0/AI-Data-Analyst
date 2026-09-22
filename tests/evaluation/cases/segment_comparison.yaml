@@ -1,0 +1,14 @@
+cases:
+  - id: segment_compare_churn
+    dataset_type: "churn"
+    question: "Compare churn rate and monthly charges across contract segments."
+    expected_tools: ["compare_segments", "run_sql", "describe_column"]
+    expected_metrics: ["churn", "charges", "segment"]
+    expected_keywords: ["contract", "segment"]
+
+  - id: segment_regional_sales
+    dataset_type: "sales"
+    question: "How does customer satisfaction score differ between regions?"
+    expected_tools: ["compare_segments", "run_sql", "describe_column"]
+    expected_metrics: ["satisfaction", "region"]
+    expected_keywords: ["region"]

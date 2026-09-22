@@ -1,0 +1,7 @@
+cases:
+  - id: outlier_salary_spikes
+    dataset_type: "employees"
+    question: "Identify numeric outliers and extreme values in employee salary."
+    expected_tools: ["detect_outliers", "compute_distribution", "describe_column"]
+    expected_metrics: ["outlier", "salary"]
+    expected_keywords: ["salary", "outlier"]

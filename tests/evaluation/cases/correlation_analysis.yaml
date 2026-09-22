@@ -1,0 +1,7 @@
+cases:
+  - id: correlation_price_volume
+    dataset_type: "sales"
+    question: "Calculate correlation coefficients between price, units, and revenue."
+    expected_tools: ["calculate_correlation", "run_sql", "generate_profile"]
+    expected_metrics: ["correlation", "r", "price"]
+    expected_keywords: ["correlation"]

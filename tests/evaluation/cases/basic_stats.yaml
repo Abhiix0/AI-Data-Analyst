@@ -1,0 +1,14 @@
+cases:
+  - id: stats_describe_column
+    dataset_type: "sales"
+    question: "What is the distribution, average, and summary statistics of revenue?"
+    expected_tools: ["describe_column", "compute_distribution", "run_sql"]
+    expected_metrics: ["mean", "median", "std", "revenue"]
+    expected_keywords: ["revenue"]
+
+  - id: stats_missingness
+    dataset_type: "sales"
+    question: "Check for missing values and null rates across all columns."
+    expected_tools: ["calculate_missingness", "inspect_schema", "generate_profile"]
+    expected_metrics: ["missing", "pct"]
+    expected_keywords: ["missing", "column"]
