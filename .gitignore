@@ -43,3 +43,11 @@ htmlcov/
 # Outputs
 !outputs/charts/.gitkeep
 !outputs/reports/.gitkeep
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+apps/web/.next/
+apps/web/node_modules/
+
