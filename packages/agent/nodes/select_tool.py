@@ -47,17 +47,26 @@ def select_tool_node(state: AgentState, llm: Optional[BaseLLMProvider] = None) -
     # Heuristic tool selection
     step_lower = current_step.lower()
     cols = state.target_columns
+    numeric_cols = [c for c, dtype in state.schema_info.items() if any(t in str(dtype).lower() for t in ("int", "float", "double", "decimal", "numeric"))]
+    cat_cols = [c for c, dtype in state.schema_info.items() if c not in numeric_cols]
 
     if "compare segments" in step_lower or "segment" in step_lower:
-        if len(cols) >= 2:
+        if cat_cols and numeric_cols:
+            seg_col = cols[0] if (cols and cols[0] in cat_cols) else cat_cols[0]
+            met_col = cols[1] if (len(cols) > 1 and cols[1] in numeric_cols) else numeric_cols[0]
             state.pending_tool_call = ToolCallRecord(
                 tool_name="compare_segments",
-                arguments={"segment_column": cols[0], "metric_column": cols[1]},
+                arguments={"segment_column": seg_col, "metric_column": met_col},
             )
-        elif cols:
+        elif numeric_cols:
             state.pending_tool_call = ToolCallRecord(
                 tool_name="describe_column",
-                arguments={"column": cols[0]},
+                arguments={"column": numeric_cols[0]},
+            )
+        else:
+            state.pending_tool_call = ToolCallRecord(
+                tool_name="calculate_missingness",
+                arguments={},
             )
     elif "correlation" in step_lower:
         state.pending_tool_call = ToolCallRecord(
@@ -65,27 +74,36 @@ def select_tool_node(state: AgentState, llm: Optional[BaseLLMProvider] = None) -
             arguments={"limit": 10},
         )
     elif "outlier" in step_lower or "anomaly" in step_lower:
-        if cols:
+        target_num = cols[0] if (cols and cols[0] in numeric_cols) else (numeric_cols[0] if numeric_cols else None)
+        if target_num:
             state.pending_tool_call = ToolCallRecord(
                 tool_name="detect_outliers",
-                arguments={"column": cols[0]},
+                arguments={"column": target_num},
+            )
+        else:
+            state.pending_tool_call = ToolCallRecord(
+                tool_name="calculate_missingness",
+                arguments={},
             )
     elif "trend" in step_lower:
-        if len(cols) >= 2:
+        if numeric_cols:
+            t_col = cols[0] if cols else list(state.schema_info.keys())[0]
+            m_col = cols[1] if (len(cols) > 1 and cols[1] in numeric_cols) else numeric_cols[0]
             state.pending_tool_call = ToolCallRecord(
                 tool_name="find_trends",
-                arguments={"time_column": cols[0], "metric_column": cols[1]},
+                arguments={"time_column": t_col, "metric_column": m_col},
             )
-        elif cols:
+        else:
             state.pending_tool_call = ToolCallRecord(
-                tool_name="describe_column",
-                arguments={"column": cols[0]},
+                tool_name="calculate_missingness",
+                arguments={},
             )
     elif "distribution" in step_lower or "describe" in step_lower:
-        if cols:
+        target_num = cols[0] if (cols and cols[0] in numeric_cols) else (numeric_cols[0] if numeric_cols else None)
+        if target_num:
             state.pending_tool_call = ToolCallRecord(
                 tool_name="describe_column",
-                arguments={"column": cols[0]},
+                arguments={"column": target_num},
             )
         else:
             state.pending_tool_call = ToolCallRecord(
@@ -98,12 +116,18 @@ def select_tool_node(state: AgentState, llm: Optional[BaseLLMProvider] = None) -
                 tool_name="test_hypothesis",
                 arguments={"hypothesis_type": "correlation", "columns": cols[:2]},
             )
+        else:
+            state.pending_tool_call = ToolCallRecord(
+                tool_name="calculate_missingness",
+                arguments={},
+            )
     else:
-        # Fallback to describe or run_sql or calculate_missingness
-        if cols:
+        # Fallback
+        target_num = cols[0] if (cols and cols[0] in numeric_cols) else (numeric_cols[0] if numeric_cols else None)
+        if target_num:
             state.pending_tool_call = ToolCallRecord(
                 tool_name="describe_column",
-                arguments={"column": cols[0]},
+                arguments={"column": target_num},
             )
         else:
             state.pending_tool_call = ToolCallRecord(
