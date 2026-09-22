@@ -1,3 +1,5 @@
+# Transitional requirements reference.
+# Superseded by pyproject.toml in the root and individual packages.
 pandas>=2.0.0
 numpy>=1.24.0
 plotly>=5.15.0

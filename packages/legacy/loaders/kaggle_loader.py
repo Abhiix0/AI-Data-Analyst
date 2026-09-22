@@ -5,10 +5,10 @@ import glob
 import subprocess
 
 import pandas as pd
-from loaders.csv_loader import load_csv
+from packages.legacy.loaders.csv_loader import load_csv
 
 
-DOWNLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "kaggle_downloads")
+DOWNLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "kaggle_downloads")
 
 
 def load_kaggle(dataset_ref: str) -> pd.DataFrame:

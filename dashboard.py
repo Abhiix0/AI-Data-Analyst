@@ -14,9 +14,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from orchestrator import run_pipeline
-from core.context import AnalysisContext
-from llm.groq_client import generate, LLMUnavailableError
-from llm.prompts import CHAT_SYSTEM_PROMPT, chat_prompt
+from packages.legacy.core.context import AnalysisContext
+from packages.legacy.llm.groq_client import generate, LLMUnavailableError
+from packages.legacy.llm.prompts import CHAT_SYSTEM_PROMPT, chat_prompt
 
 # ── Page config ──────────────────────────────────────────────────
 st.set_page_config(

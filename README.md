@@ -93,14 +93,25 @@ python main.py kaggle:username/dataset-name
 
 ```text
 ai-data-analyst/
-├── agents/                 # Analysis agents
-├── core/                   # Shared AnalysisContext
-├── llm/                    # Groq client + prompts
-├── loaders/                # CSV, Excel, Kaggle loaders
-├── outputs/reports/        # Generated reports
-├── dashboard.py            # Streamlit dashboard
-├── main.py                 # CLI entry point
-└── orchestrator.py         # Pipeline controller
+├── apps/
+│   ├── web/                      # Next.js frontend application
+│   └── api/                      # FastAPI backend application
+├── packages/
+│   ├── analytics/                # Deterministic Polars analytics & DuckDB tools
+│   ├── ingestion/                # Ingestion pipeline & Parquet conversion
+│   ├── agent/                    # LangGraph analytical agent & tool registry
+│   ├── evidence/                 # Evidence & Finding models and strength classification
+│   ├── visualization/            # Chart selection & ChartSpec models
+│   ├── shared/                   # Storage clients & LLM provider abstraction
+│   └── legacy/                   # Transitional bridge for original prototype modules
+├── docs/                         # Architecture, API, and decision records (ADRs)
+├── tests/                        # Unit, Integration, and Evaluation test suites
+├── infra/                        # Docker & database migration configuration
+├── data/                         # Local dataset storage cache
+├── outputs/reports/              # Generated reports
+├── dashboard.py                  # Streamlit dashboard
+├── main.py                       # CLI entry point
+└── orchestrator.py               # Pipeline controller
 ```
 
 ## Sample Datasets

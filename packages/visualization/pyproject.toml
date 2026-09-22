@@ -1,0 +1,11 @@
+[project]
+name = "visualization"
+version = "0.1.0"
+description = "Visualization specification package for AI Data Analyst"
+dependencies = [
+    "pydantic>=2.5.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

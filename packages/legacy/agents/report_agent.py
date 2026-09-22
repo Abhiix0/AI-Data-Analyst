@@ -3,9 +3,8 @@ from __future__ import annotations
 import os
 from datetime import datetime
 
-from core.context import AnalysisContext
-
-from core.config import REPORTS_DIR
+from packages.legacy.core.context import AnalysisContext
+from packages.legacy.core.config import REPORTS_DIR
 
 
 def run(ctx: AnalysisContext) -> str:

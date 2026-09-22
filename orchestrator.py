@@ -8,15 +8,15 @@ import pandas as pd
 from dotenv import load_dotenv
 load_dotenv()
 
-from core.context import AnalysisContext
-from loaders.csv_loader import load_csv
-from loaders.excel_loader import load_excel
-from loaders.kaggle_loader import load_kaggle
-from agents.profiling_agent import run as run_profiling
-from agents.visualization_agent import run as run_visualization
-from agents.insight_agent import run as run_insights
-from agents.recommendation_agent import run as run_recommendations
-from agents.report_agent import run as run_report
+from packages.legacy.core.context import AnalysisContext
+from packages.legacy.loaders.csv_loader import load_csv
+from packages.legacy.loaders.excel_loader import load_excel
+from packages.legacy.loaders.kaggle_loader import load_kaggle
+from packages.legacy.agents.profiling_agent import run as run_profiling
+from packages.legacy.agents.visualization_agent import run as run_visualization
+from packages.legacy.agents.insight_agent import run as run_insights
+from packages.legacy.agents.recommendation_agent import run as run_recommendations
+from packages.legacy.agents.report_agent import run as run_report
 
 
 def _validate_dataset(df: pd.DataFrame, source: str) -> None:

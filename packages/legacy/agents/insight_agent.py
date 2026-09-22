@@ -3,9 +3,9 @@ from __future__ import annotations
 from typing import List
 import json
 
-from core.context import AnalysisContext
-from llm.groq_client import generate, LLMUnavailableError
-from llm.prompts import INSIGHT_SYSTEM_PROMPT, insight_prompt
+from packages.legacy.core.context import AnalysisContext
+from packages.legacy.llm.groq_client import generate, LLMUnavailableError
+from packages.legacy.llm.prompts import INSIGHT_SYSTEM_PROMPT, insight_prompt
 
 
 def _parse_insights(text: str) -> List[str]:

@@ -3,9 +3,9 @@ from __future__ import annotations
 from typing import List
 import json
 
-from core.context import AnalysisContext
-from llm.groq_client import generate, LLMUnavailableError
-from llm.prompts import RECOMMENDATION_SYSTEM_PROMPT, recommendation_prompt
+from packages.legacy.core.context import AnalysisContext
+from packages.legacy.llm.groq_client import generate, LLMUnavailableError
+from packages.legacy.llm.prompts import RECOMMENDATION_SYSTEM_PROMPT, recommendation_prompt
 
 
 def _parse_recommendations(text: str) -> List[str]:
