@@ -3,7 +3,13 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from apps.api.app.core.config import settings
-from apps.api.app.api.routers import datasets_router, runs_router, findings_router, investigations_router
+from apps.api.app.api.routers import (
+    datasets_router,
+    runs_router,
+    findings_router,
+    investigations_router,
+    reports_router,
+)
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -26,6 +32,7 @@ app.include_router(datasets_router, prefix=settings.API_PREFIX)
 app.include_router(runs_router, prefix=settings.API_PREFIX)
 app.include_router(findings_router, prefix=settings.API_PREFIX)
 app.include_router(investigations_router, prefix=settings.API_PREFIX)
+app.include_router(reports_router, prefix=settings.API_PREFIX)
 
 
 @app.get("/health")

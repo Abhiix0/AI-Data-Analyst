@@ -15,7 +15,7 @@ from packages.ingestion.kaggle_loader import load_kaggle
 from packages.analytics.tools import generate_profile
 from packages.visualization.selector import generate_chart_specs_from_profile as run_visualization
 from packages.analytics.briefing import generate_briefing
-from packages.legacy.agents.report_agent import run as run_report
+from packages.analytics.reports import generate_report_from_context as run_report
 import polars as pl
 
 
