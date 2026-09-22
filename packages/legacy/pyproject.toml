@@ -1,0 +1,18 @@
+[project]
+name = "legacy"
+version = "0.1.0"
+description = "Transitional bridge package for original prototype modules"
+dependencies = [
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+    "plotly>=5.15.0",
+    "groq>=0.9.0",
+    "openpyxl>=3.1.0",
+    "xlrd>=2.0.1",
+    "kaggle>=1.5.0",
+    "streamlit>=1.35.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
