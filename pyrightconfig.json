@@ -1,0 +1,27 @@
+{
+  "include": [
+    "apps",
+    "packages",
+    "tests",
+    "main.py",
+    "orchestrator.py"
+  ],
+  "exclude": [
+    "**/node_modules",
+    "**/.next",
+    "**/.venv"
+  ],
+  "extraPaths": [
+    ".",
+    "apps/api",
+    "packages/agent",
+    "packages/analytics",
+    "packages/evidence",
+    "packages/ingestion",
+    "packages/shared",
+    "packages/sql",
+    "packages/visualization"
+  ],
+  "pythonVersion": "3.12",
+  "typeCheckingMode": "basic"
+}

@@ -2,13 +2,14 @@
 from __future__ import annotations
 import os
 import sys
+from typing import Any, Dict, List, Optional
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import pandas as pd
+import polars as pl
 from dotenv import load_dotenv
 load_dotenv()
 
-from packages.legacy.core.context import AnalysisContext
 from packages.ingestion.csv_loader import load_csv
 from packages.ingestion.excel_loader import load_excel
 from packages.ingestion.kaggle_loader import load_kaggle
@@ -16,7 +17,24 @@ from packages.analytics.tools import generate_profile
 from packages.visualization.selector import generate_chart_specs_from_profile as run_visualization
 from packages.analytics.briefing import generate_briefing
 from packages.analytics.reports import generate_report_from_context as run_report
-import polars as pl
+
+
+class AnalysisContext:
+    """Context object storing pipeline execution state and artifacts."""
+
+    def __init__(self, df: pd.DataFrame, file_name: str = ""):
+        self.df = df
+        self.file_name = file_name
+        self.profile: Dict[str, Any] = {}
+        self.chart_paths: List[Any] = []
+        self.insights: List[str] = []
+        self.recommendations: List[str] = []
+        self.report_path: Optional[str] = None
+        self.errors: List[str] = []
+
+    def shape_summary(self) -> str:
+        r, c = self.df.shape
+        return f"{r:,} rows x {c} columns"
 
 
 def _validate_dataset(df: pd.DataFrame, source: str) -> None:
