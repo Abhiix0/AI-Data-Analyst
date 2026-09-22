@@ -1,6 +1,6 @@
 """Pydantic models for analytics tool outputs."""
 from __future__ import annotations
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Union
 from pydantic import BaseModel, Field
 
 
@@ -12,6 +12,13 @@ class DatasetShape(BaseModel):
 class ColumnSchema(BaseModel):
     name: str
     dtype: str
+
+
+class ColumnMetadata(BaseModel):
+    column: str
+    dtype: str
+    null_count: int
+    unique_count: int
 
 
 class ColumnStats(BaseModel):
@@ -67,6 +74,74 @@ class DatetimeStats(BaseModel):
 class DuplicateStats(BaseModel):
     duplicate_rows: int
     pct: float
+
+
+class SampleRowsResult(BaseModel):
+    total_rows: int
+    sample_count: int
+    records: List[Dict[str, Any]]
+
+
+class UniqueValuesResult(BaseModel):
+    column: str
+    total_unique: int
+    values: List[Any]
+
+
+class FilterResult(BaseModel):
+    column: str
+    operator: str
+    value: Any
+    total_rows: int
+    matched_rows: int
+    matched_pct: float
+    sampled_records: List[Dict[str, Any]]
+
+
+class GroupByResult(BaseModel):
+    group_column: str
+    agg_column: str
+    agg_fn: str
+    groups: List[Dict[str, Any]]
+
+
+class AggregateResult(BaseModel):
+    column: str
+    agg_fn: str
+    value: Optional[float]
+
+
+class SegmentComparisonResult(BaseModel):
+    segment_column: str
+    metric_column: str
+    segments: Dict[str, Dict[str, float]]
+
+
+class TrendResult(BaseModel):
+    time_column: str
+    metric_column: str
+    direction: Literal["increasing", "decreasing", "stable"]
+    slope: float
+    start_value: float
+    end_value: float
+    pct_change: float
+
+
+class AnomalyResult(BaseModel):
+    column: str
+    method: str
+    anomaly_count: int
+    anomaly_pct: float
+    sample_anomalies: List[Dict[str, Any]]
+
+
+class HypothesisTestResult(BaseModel):
+    test_name: str
+    statistic: float
+    p_value: float
+    significant: bool
+    alpha: float
+    interpretation: str
 
 
 class ProfileResult(BaseModel):
