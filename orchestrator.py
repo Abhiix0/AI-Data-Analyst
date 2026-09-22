@@ -12,11 +12,12 @@ from packages.legacy.core.context import AnalysisContext
 from packages.ingestion.csv_loader import load_csv
 from packages.ingestion.excel_loader import load_excel
 from packages.ingestion.kaggle_loader import load_kaggle
-from packages.legacy.agents.profiling_agent import run as run_profiling
+from packages.analytics.tools import generate_profile
 from packages.legacy.agents.visualization_agent import run as run_visualization
 from packages.legacy.agents.insight_agent import run as run_insights
 from packages.legacy.agents.recommendation_agent import run as run_recommendations
 from packages.legacy.agents.report_agent import run as run_report
+import polars as pl
 
 
 def _validate_dataset(df: pd.DataFrame, source: str) -> None:
@@ -79,7 +80,7 @@ def run_pipeline(source: str, progress_callback=None, model: str = "llama-3.1-8b
     ctx = AnalysisContext(df=df, file_name=file_name)
 
     _progress(1, "Profiling dataset...")
-    ctx.profile = _safe_run(ctx, "Profiling", run_profiling, df) or {}
+    ctx.profile = _safe_run(ctx, "Profiling", generate_profile, pl.from_pandas(df)) or {}
 
     _progress(2, "Generating visualizations...")
     ctx.chart_paths = _safe_run(ctx, "Visualization", run_visualization, df, ctx.profile) or []
