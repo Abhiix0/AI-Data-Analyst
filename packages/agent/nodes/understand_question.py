@@ -20,8 +20,13 @@ def understand_question_node(state: AgentState, llm: Optional[BaseLLMProvider] =
     
     if llm and not hasattr(llm, "canned_responses"):
         try:
+            history_str = ""
+            if state.conversation_history:
+                recent = state.conversation_history[-4:]
+                history_str = "\nRecent Conversation:\n" + "\n".join([f"{m.get('role', 'user')}: {m.get('content', '')}" for m in recent]) + "\n"
+
             prompt = (
-                f"You are a Senior Data Analyst. Analyze this user query against the dataset schema:\n\n"
+                f"You are a Senior Data Analyst. Analyze this user query against the dataset schema:\n{history_str}\n"
                 f"User Query: {state.question}\n"
                 f"Dataset Schema: {schema_str}\n\n"
                 "Identify the analytical intent and the exact relevant columns from the schema."

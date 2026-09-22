@@ -5,7 +5,7 @@ from typing import Any, Dict, List, TYPE_CHECKING
 from sqlalchemy import ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from apps.api.app.models.base import Base, TimestampMixin
+from apps.api.app.models.base import Base, TimestampMixin, JSON_TYPE
 
 if TYPE_CHECKING:
     from apps.api.app.models.dataset import Dataset
@@ -41,7 +41,7 @@ class DatasetVersion(Base, TimestampMixin):
         nullable=False,
     )
     schema_json: Mapped[Dict[str, Any]] = mapped_column(
-        JSONB,
+        JSON_TYPE,
         nullable=False,
         default=dict,
     )

@@ -17,6 +17,7 @@ class AgentState(BaseModel):
     question: str
     parquet_path: str
     dataset_id: Optional[str] = None
+    conversation_history: List[Dict[str, str]] = Field(default_factory=list)
 
     # Context & Schema
     schema_info: Dict[str, str] = Field(default_factory=dict)

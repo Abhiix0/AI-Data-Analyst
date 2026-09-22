@@ -1,13 +1,20 @@
-"""FastAPI router for analytical runs and interactive agent execution."""
+"""FastAPI router for analytical runs, interactive agent execution, and chat conversations."""
 from __future__ import annotations
 from typing import Any, Dict, List, Optional
 import uuid
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from apps.api.app.db.session import get_db
-from apps.api.app.models.dataset import AnalysisRun, Dataset, DatasetVersion, Finding as DBFinding
+from apps.api.app.core.database import get_db
+from apps.api.app.models import (
+    AnalysisRun,
+    Dataset,
+    DatasetVersion,
+    Finding as DBFinding,
+    ConversationTurn,
+)
 from packages.agent.graph import run_analytical_agent
 from packages.shared.storage import get_storage_client
 
@@ -16,6 +23,10 @@ runs_router = APIRouter(prefix="/runs", tags=["Runs & Agent"])
 
 class AskQuestionRequest(BaseModel):
     question: str = Field(..., description="Natural language analytical question to ask about the dataset")
+
+
+class ChatMessageRequest(BaseModel):
+    message: str = Field(..., description="Conversational message / follow-up query")
 
 
 class FindingResponse(BaseModel):
@@ -44,6 +55,26 @@ class AskQuestionResponse(BaseModel):
     evidence: List[EvidenceResponse]
 
 
+class ChatTurnResponse(BaseModel):
+    id: str
+    run_id: str
+    turn_index: int
+    user_message: str
+    assistant_message: str
+    findings: List[Dict[str, Any]]
+    evidence: List[Dict[str, Any]]
+    created_at: datetime
+
+
+def _parse_uuid(val: Any) -> Optional[uuid.UUID]:
+    if isinstance(val, uuid.UUID):
+        return val
+    try:
+        return uuid.UUID(str(val))
+    except Exception:
+        return None
+
+
 @runs_router.post("/{run_id}/ask", response_model=AskQuestionResponse)
 def ask_question_on_run(
     run_id: str,
@@ -51,7 +82,8 @@ def ask_question_on_run(
     db: Session = Depends(get_db),
 ):
     """Execute LangGraph analytical agent with hard evidence verification over a run's dataset."""
-    run = db.query(AnalysisRun).filter(AnalysisRun.id == run_id).first()
+    uid = _parse_uuid(run_id)
+    run = db.query(AnalysisRun).filter(AnalysisRun.id == uid).first() if uid else None
     
     parquet_path = None
     if run:
@@ -60,16 +92,16 @@ def ask_question_on_run(
             parquet_path = version.storage_path
 
     # If run_id is actually a dataset_id
-    if not parquet_path:
-        dataset = db.query(Dataset).filter(Dataset.id == run_id).first()
+    if not parquet_path and uid:
+        dataset = db.query(Dataset).filter(Dataset.id == uid).first()
         if dataset:
-            version = db.query(DatasetVersion).filter(DatasetVersion.dataset_id == dataset.id).order_by(DatasetVersion.version_num.desc()).first()
+            version = db.query(DatasetVersion).filter(DatasetVersion.dataset_id == dataset.id).order_by(DatasetVersion.created_at.desc()).first()
             if version:
                 parquet_path = version.storage_path
                 # Create run record if missing
                 if not run:
                     run = AnalysisRun(
-                        id=str(uuid.uuid4()),
+                        id=uuid.uuid4(),
                         dataset_version_id=version.id,
                         status="COMPLETED",
                         profile_json={},
@@ -87,33 +119,32 @@ def ask_question_on_run(
     state = run_analytical_agent(
         question=req.question,
         parquet_path=parquet_path,
-        dataset_id=run.id if run else None,
+        dataset_id=str(run.id) if run else None,
     )
 
     # Save findings into DB
     for finding in state.synthesized_findings:
         db_finding = DBFinding(
-            id=finding.id,
-            run_id=run.id if run else run_id,
-            title=finding.title,
-            description=finding.description,
-            category=finding.category,
-            strength=finding.strength,
-            evidence_json=[e.model_dump() for e in state.evidence_ledger if e.id in finding.evidence_ids] or [state.evidence_ledger[0].model_dump()] if state.evidence_ledger else [],
+            id=finding.id if isinstance(finding.id, uuid.UUID) else uuid.UUID(str(finding.id)),
+            run_id=run.id if run else (uid or uuid.uuid4()),
+            claim=finding.claim or finding.title or "Finding",
+            evidence_json=[e.model_dump(mode="json") for e in state.evidence_ledger if str(e.id) in finding.evidence_ids] or [state.evidence_ledger[0].model_dump(mode="json")] if state.evidence_ledger else [],
+            evidence_strength=finding.evidence_strength or "strong",
+            source_columns=finding.source_columns or [],
         )
         db.add(db_finding)
     db.commit()
 
     return AskQuestionResponse(
-        run_id=run.id if run else run_id,
+        run_id=str(run.id) if run else run_id,
         question=req.question,
         answer=state.final_response,
         validation_passed=state.validation_passed,
         findings=[
             FindingResponse(
-                id=f.id,
-                title=f.title,
-                description=f.description,
+                id=str(f.id),
+                title=f.title or f.claim or "Finding",
+                description=f.description or f.claim or "",
                 category=f.category,
                 strength=f.strength,
                 evidence_ids=f.evidence_ids,
@@ -122,7 +153,7 @@ def ask_question_on_run(
         ],
         evidence=[
             EvidenceResponse(
-                id=e.id,
+                id=str(e.id),
                 metric_name=e.metric_name,
                 value=e.value,
                 source_query=e.source_query,
@@ -131,3 +162,139 @@ def ask_question_on_run(
             for e in state.evidence_ledger
         ],
     )
+
+
+@runs_router.post("/{run_id}/chat", response_model=ChatTurnResponse)
+def send_chat_message_to_run(
+    run_id: str,
+    req: ChatMessageRequest,
+    db: Session = Depends(get_db),
+):
+    """Conversational endpoint executing multi-turn grounded agent analysis."""
+    uid = _parse_uuid(run_id)
+    run = db.query(AnalysisRun).filter(AnalysisRun.id == uid).first() if uid else None
+    if not run:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"AnalysisRun with ID '{run_id}' not found.",
+        )
+
+    version = db.query(DatasetVersion).filter(DatasetVersion.id == run.dataset_version_id).first()
+    if not version or not version.storage_path:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Dataset storage path not found for this run.",
+        )
+
+    # Fetch prior turns for context
+    past_turns = (
+        db.query(ConversationTurn)
+        .filter(ConversationTurn.run_id == run.id)
+        .order_by(ConversationTurn.turn_index.asc())
+        .all()
+    )
+
+    conv_history = []
+    for t in past_turns:
+        conv_history.append({"role": "user", "content": t.user_message})
+        conv_history.append({"role": "assistant", "content": t.assistant_message})
+
+    # Execute Agent with conversation history
+    state = run_analytical_agent(
+        question=req.message,
+        parquet_path=version.storage_path,
+        dataset_id=str(run.id),
+        conversation_history=conv_history,
+    )
+
+    findings_payload = [
+        {
+            "id": str(f.id),
+            "title": f.title or f.claim,
+            "description": f.description or f.claim,
+            "category": f.category,
+            "strength": f.strength,
+            "evidence_ids": f.evidence_ids,
+        }
+        for f in state.synthesized_findings
+    ]
+
+    evidence_payload = [
+        {
+            "id": str(e.id),
+            "metric_name": e.metric_name,
+            "value": e.value,
+            "source_query": e.source_query,
+            "confidence_score": e.confidence_score,
+        }
+        for e in state.evidence_ledger
+    ]
+
+    # Save turn
+    new_turn = ConversationTurn(
+        id=uuid.uuid4(),
+        run_id=run.id,
+        turn_index=len(past_turns),
+        user_message=req.message,
+        assistant_message=state.final_response,
+        findings_json=findings_payload,
+        evidence_json=evidence_payload,
+    )
+    db.add(new_turn)
+
+    # Save any new findings into DB findings table
+    for finding in state.synthesized_findings:
+        db_finding = DBFinding(
+            id=finding.id if isinstance(finding.id, uuid.UUID) else uuid.UUID(str(finding.id)),
+            run_id=run.id,
+            claim=finding.claim or finding.title or "Finding",
+            evidence_json=[e.model_dump(mode="json") for e in state.evidence_ledger if str(e.id) in finding.evidence_ids] or [state.evidence_ledger[0].model_dump(mode="json")] if state.evidence_ledger else [],
+            evidence_strength=finding.evidence_strength or "strong",
+            source_columns=finding.source_columns or [],
+        )
+        db.add(db_finding)
+
+    db.commit()
+    db.refresh(new_turn)
+
+    return ChatTurnResponse(
+        id=str(new_turn.id),
+        run_id=str(new_turn.run_id),
+        turn_index=new_turn.turn_index,
+        user_message=new_turn.user_message,
+        assistant_message=new_turn.assistant_message,
+        findings=new_turn.findings_json,
+        evidence=new_turn.evidence_json,
+        created_at=new_turn.created_at,
+    )
+
+
+@runs_router.get("/{run_id}/chat/history", response_model=List[ChatTurnResponse])
+def get_chat_history(
+    run_id: str,
+    db: Session = Depends(get_db),
+):
+    """Retrieve full chronological conversation history for an analysis run."""
+    uid = _parse_uuid(run_id)
+    if not uid:
+        return []
+
+    turns = (
+        db.query(ConversationTurn)
+        .filter(ConversationTurn.run_id == uid)
+        .order_by(ConversationTurn.turn_index.asc())
+        .all()
+    )
+    return [
+        ChatTurnResponse(
+            id=str(t.id),
+            run_id=str(t.run_id),
+            turn_index=t.turn_index,
+            user_message=t.user_message,
+            assistant_message=t.assistant_message,
+            findings=t.findings_json,
+            evidence=t.evidence_json,
+            created_at=t.created_at,
+        )
+        for t in turns
+    ]

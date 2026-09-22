@@ -92,6 +92,7 @@ def run_analytical_agent(
     question: str,
     parquet_path: str,
     dataset_id: Optional[str] = None,
+    conversation_history: Optional[List[Dict[str, str]]] = None,
     llm: Optional[BaseLLMProvider] = None,
     max_iterations: int = 10,
 ) -> AgentState:
@@ -101,6 +102,7 @@ def run_analytical_agent(
         question=question,
         parquet_path=parquet_path,
         dataset_id=dataset_id,
+        conversation_history=conversation_history or [],
         max_iterations=max_iterations,
     )
     result_dict = graph.invoke(initial_state)

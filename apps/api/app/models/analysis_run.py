@@ -4,14 +4,15 @@ import uuid
 from datetime import datetime
 from typing import List, Optional, TYPE_CHECKING
 from sqlalchemy import DateTime, ForeignKey, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from apps.api.app.models.base import Base, utc_now
+from apps.api.app.models.base import Base, utc_now, JSON_TYPE
 
 if TYPE_CHECKING:
     from apps.api.app.models.dataset_version import DatasetVersion
     from apps.api.app.models.finding import Finding
     from apps.api.app.models.report import Report
+    from apps.api.app.models.conversation_turn import ConversationTurn
 
 
 class AnalysisRun(Base):
@@ -34,6 +35,10 @@ class AnalysisRun(Base):
         default="pending",
         nullable=False,
         comment="pending | running | completed | failed",
+    )
+    profile_json: Mapped[Optional[dict]] = mapped_column(
+        JSON_TYPE,
+        nullable=True,
     )
     started_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -59,4 +64,10 @@ class AnalysisRun(Base):
         "Report",
         back_populates="run",
         cascade="all, delete-orphan",
+    )
+    conversation_turns: Mapped[List[ConversationTurn]] = relationship(
+        "ConversationTurn",
+        back_populates="run",
+        cascade="all, delete-orphan",
+        order_by="ConversationTurn.turn_index",
     )

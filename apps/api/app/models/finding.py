@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from apps.api.app.models.base import Base, TimestampMixin
+from apps.api.app.models.base import Base, TimestampMixin, JSON_TYPE
 
 if TYPE_CHECKING:
     from apps.api.app.models.analysis_run import AnalysisRun
@@ -31,7 +31,7 @@ class Finding(Base, TimestampMixin):
         nullable=False,
     )
     evidence_json: Mapped[List[Dict[str, Any]]] = mapped_column(
-        JSONB,
+        JSON_TYPE,
         nullable=False,
         default=list,
         comment="List of Evidence objects with metrics, tools, values, and column refs",
@@ -42,7 +42,7 @@ class Finding(Base, TimestampMixin):
         comment="strong | moderate | weak | insufficient",
     )
     source_columns: Mapped[List[str]] = mapped_column(
-        JSONB,
+        JSON_TYPE,
         nullable=False,
         default=list,
     )
