@@ -9,9 +9,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from packages.legacy.core.context import AnalysisContext
-from packages.legacy.loaders.csv_loader import load_csv
-from packages.legacy.loaders.excel_loader import load_excel
-from packages.legacy.loaders.kaggle_loader import load_kaggle
+from packages.ingestion.csv_loader import load_csv
+from packages.ingestion.excel_loader import load_excel
+from packages.ingestion.kaggle_loader import load_kaggle
 from packages.legacy.agents.profiling_agent import run as run_profiling
 from packages.legacy.agents.visualization_agent import run as run_visualization
 from packages.legacy.agents.insight_agent import run as run_insights
@@ -42,14 +42,15 @@ def _safe_run(ctx: AnalysisContext, step_name: str, fn, *args, **kwargs):
 
 def _load_dataset(source: str) -> pd.DataFrame:
     if source.startswith("kaggle:"):
-        return load_kaggle(source.replace("kaggle:", "", 1))
+        pldf = load_kaggle(source.replace("kaggle:", "", 1))
+        return pldf.to_pandas()
     if not os.path.isfile(source):
         raise FileNotFoundError(f"Dataset file not found: {source}")
     ext = os.path.splitext(source)[1].lower()
     if ext == ".csv":
-        return load_csv(source)
+        return load_csv(source).to_pandas()
     if ext in (".xlsx", ".xls"):
-        return load_excel(source)
+        return load_excel(source).to_pandas()
     raise ValueError(f"Unsupported format '{ext}'. Use .csv, .xlsx, .xls, or kaggle:<ref>")
 
 
