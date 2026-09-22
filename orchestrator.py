@@ -13,7 +13,7 @@ from packages.ingestion.csv_loader import load_csv
 from packages.ingestion.excel_loader import load_excel
 from packages.ingestion.kaggle_loader import load_kaggle
 from packages.analytics.tools import generate_profile
-from packages.legacy.agents.visualization_agent import run as run_visualization
+from packages.visualization.selector import generate_chart_specs_from_profile as run_visualization
 from packages.legacy.agents.insight_agent import run as run_insights
 from packages.legacy.agents.recommendation_agent import run as run_recommendations
 from packages.legacy.agents.report_agent import run as run_report
