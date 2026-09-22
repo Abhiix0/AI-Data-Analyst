@@ -87,25 +87,50 @@ export interface ReportItem {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api";
 
-export async function uploadDataset(file: File): Promise<{ dataset_id: string; version_id: string; row_count: number; col_count: number }> {
-  const formData = new FormData();
-  formData.append("file", file);
-
-  const res = await fetch(`${API_BASE}/datasets/upload`, {
-    method: "POST",
-    body: formData,
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: "Upload failed" }));
-    throw new Error(err.detail || "Upload failed");
+export async function checkBackendHealth(): Promise<boolean> {
+  try {
+    const healthUrl = API_BASE.replace(/\/api\/?$/, "/health");
+    const res = await fetch(healthUrl, { method: "GET", signal: AbortSignal.timeout(3000) });
+    return res.ok;
+  } catch {
+    return false;
   }
-  return res.json();
+}
+
+export async function uploadDataset(file: File): Promise<{ dataset_id: string; version_id: string; row_count: number; col_count: number }> {
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch(`${API_BASE}/datasets/upload`, {
+      method: "POST",
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: "Upload failed" }));
+      throw new Error(err.detail || "Upload failed");
+    }
+    return await res.json();
+  } catch (err: any) {
+    if (err.name === "TypeError" && err.message.includes("fetch")) {
+      throw new Error("Unable to connect to FastAPI backend on port 8000. Please ensure the backend service is running.");
+    }
+    throw err;
+  }
 }
 
 export async function listDatasets(): Promise<Dataset[]> {
-  const res = await fetch(`${API_BASE}/datasets`);
-  if (!res.ok) return [];
-  return res.json();
+  try {
+    const res = await fetch(`${API_BASE}/datasets`, {
+      method: "GET",
+      headers: { "Accept": "application/json" },
+    });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (err) {
+    console.warn("FastAPI backend is offline or unreachable on", API_BASE);
+    return [];
+  }
 }
 
 export async function askQuestion(runOrDatasetId: string, question: string): Promise<{
@@ -116,44 +141,66 @@ export async function askQuestion(runOrDatasetId: string, question: string): Pro
   findings: any[];
   evidence: EvidenceItem[];
 }> {
-  const res = await fetch(`${API_BASE}/runs/${runOrDatasetId}/ask`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: "Query failed" }));
-    throw new Error(err.detail || "Query failed");
+  try {
+    const res = await fetch(`${API_BASE}/runs/${runOrDatasetId}/ask`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: "Query failed" }));
+      throw new Error(err.detail || "Query failed");
+    }
+    return await res.json();
+  } catch (err: any) {
+    if (err.name === "TypeError" && err.message.includes("fetch")) {
+      throw new Error("Cannot reach analysis backend. Please verify FastAPI is running on port 8000.");
+    }
+    throw err;
   }
-  return res.json();
 }
 
 export async function sendChatMessage(runId: string, message: string): Promise<ChatTurn> {
-  const res = await fetch(`${API_BASE}/runs/${runId}/chat`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: "Chat failed" }));
-    throw new Error(err.detail || "Chat failed");
+  try {
+    const res = await fetch(`${API_BASE}/runs/${runId}/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: "Chat failed" }));
+      throw new Error(err.detail || "Chat failed");
+    }
+    return await res.json();
+  } catch (err: any) {
+    if (err.name === "TypeError" && err.message.includes("fetch")) {
+      throw new Error("Cannot reach analysis backend. Please verify FastAPI is running on port 8000.");
+    }
+    throw err;
   }
-  return res.json();
 }
 
 export async function getChatHistory(runId: string): Promise<ChatTurn[]> {
-  const res = await fetch(`${API_BASE}/runs/${runId}/chat/history`);
-  if (!res.ok) return [];
-  return res.json();
+  try {
+    const res = await fetch(`${API_BASE}/runs/${runId}/chat/history`);
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
 }
 
 export async function listRunFindings(runId: string, isPinned?: boolean): Promise<FindingItem[]> {
-  const url = isPinned !== undefined
-    ? `${API_BASE}/runs/${runId}/findings?is_pinned=${isPinned}`
-    : `${API_BASE}/runs/${runId}/findings`;
-  const res = await fetch(url);
-  if (!res.ok) return [];
-  return res.json();
+  try {
+    const url = isPinned !== undefined
+      ? `${API_BASE}/runs/${runId}/findings?is_pinned=${isPinned}`
+      : `${API_BASE}/runs/${runId}/findings`;
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
 }
 
 export async function updateFinding(findingId: string, updates: { is_pinned?: boolean; user_notes?: string }): Promise<FindingItem> {
@@ -166,7 +213,7 @@ export async function updateFinding(findingId: string, updates: { is_pinned?: bo
     const err = await res.json().catch(() => ({ detail: "Update finding failed" }));
     throw new Error(err.detail || "Update finding failed");
   }
-  return res.json();
+  return await res.json();
 }
 
 export async function investigateFinding(findingId: string): Promise<{
@@ -186,13 +233,17 @@ export async function investigateFinding(findingId: string): Promise<{
     const err = await res.json().catch(() => ({ detail: "Drill-down investigation failed" }));
     throw new Error(err.detail || "Drill-down investigation failed");
   }
-  return res.json();
+  return await res.json();
 }
 
 export async function listRunInvestigations(runId: string): Promise<InvestigationItem[]> {
-  const res = await fetch(`${API_BASE}/runs/${runId}/investigations`);
-  if (!res.ok) return [];
-  return res.json();
+  try {
+    const res = await fetch(`${API_BASE}/runs/${runId}/investigations`);
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
 }
 
 export async function generateReport(runId: string, title?: string, pinnedOnly?: boolean): Promise<ReportItem> {
@@ -208,11 +259,15 @@ export async function generateReport(runId: string, title?: string, pinnedOnly?:
     const err = await res.json().catch(() => ({ detail: "Report generation failed" }));
     throw new Error(err.detail || "Report generation failed");
   }
-  return res.json();
+  return await res.json();
 }
 
 export async function listRunReports(runId: string): Promise<ReportItem[]> {
-  const res = await fetch(`${API_BASE}/runs/${runId}/reports`);
-  if (!res.ok) return [];
-  return res.json();
+  try {
+    const res = await fetch(`${API_BASE}/runs/${runId}/reports`);
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
 }

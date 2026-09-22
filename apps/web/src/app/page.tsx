@@ -7,7 +7,8 @@ import { BriefingView } from "@/components/BriefingView";
 import { ChatWorkspace } from "@/components/ChatWorkspace";
 import { VisualizationsGallery } from "@/components/VisualizationsGallery";
 import { ReportView } from "@/components/ReportView";
-import { Dataset, DatasetBriefing, listDatasets } from "@/lib/api";
+import { Dataset, DatasetBriefing, listDatasets, checkBackendHealth } from "@/lib/api";
+import { AlertCircle, RefreshCw } from "lucide-react";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState("upload");
@@ -16,16 +17,24 @@ export default function Home() {
   const [activeRunId, setActiveRunId] = useState<string | undefined>(undefined);
   const [briefing, setBriefing] = useState<DatasetBriefing | null>(null);
   const [loadingBriefing, setLoadingBriefing] = useState(false);
+  const [backendOnline, setBackendOnline] = useState<boolean | null>(null);
 
-  // Load datasets on mount
-  useEffect(() => {
-    listDatasets().then((data) => {
+  const refreshData = async () => {
+    const isOnline = await checkBackendHealth();
+    setBackendOnline(isOnline);
+    if (isOnline) {
+      const data = await listDatasets();
       setDatasets(data);
       if (data.length > 0 && !selectedDataset) {
         setSelectedDataset(data[0]);
         setActiveRunId(data[0].id);
       }
-    });
+    }
+  };
+
+  // Load datasets on mount
+  useEffect(() => {
+    refreshData();
   }, []);
 
   const handleDatasetSelected = (dataset: Dataset) => {
@@ -52,6 +61,27 @@ export default function Home() {
         setActiveTab={setActiveTab}
         selectedDatasetName={selectedDataset?.name}
       />
+
+      {/* Backend Offline Warning Banner */}
+      {backendOnline === false && (
+        <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2.5">
+          <div className="max-w-7xl mx-auto flex items-center justify-between text-xs text-amber-300">
+            <div className="flex items-center space-x-2">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 text-amber-400" />
+              <span>
+                <strong>FastAPI backend is offline:</strong> Start the backend server on port 8000 using <code className="bg-amber-950/60 px-1.5 py-0.5 rounded text-amber-200">.venv\Scripts\python -m uvicorn apps.api.app.main:app --reload</code> or <code className="bg-amber-950/60 px-1.5 py-0.5 rounded text-amber-200">docker compose up</code>.
+              </span>
+            </div>
+            <button
+              onClick={refreshData}
+              className="flex items-center space-x-1 font-semibold underline hover:text-amber-100 ml-4 flex-shrink-0"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Retry Connection</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       <main className="flex-1">
         {activeTab === "upload" && (
