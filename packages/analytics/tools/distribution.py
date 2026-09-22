@@ -34,8 +34,17 @@ def describe_column(df: pl.DataFrame, column: str) -> Optional[ColumnStats]:
     min_val = s_float.min()
     max_val = s_float.max()
 
+    def _to_float(v: object) -> float:
+        if v is None:
+            return 0.0
+        if isinstance(v, (int, float)):
+            return float(v)
+        return float(str(v))
+
+    std_num = _to_float(std_val)
+
     # Sample skewness (bias=False)
-    if len(s_float) >= 3 and std_val is not None and std_val > 0:
+    if len(s_float) >= 3 and std_num > 0:
         try:
             skew_val = s_float.skew(bias=False)
         except TypeError:
@@ -45,11 +54,11 @@ def describe_column(df: pl.DataFrame, column: str) -> Optional[ColumnStats]:
 
     return ColumnStats(
         column=column,
-        mean=round(float(mean_val if mean_val is not None else 0.0), 4),
-        median=round(float(median_val if median_val is not None else 0.0), 4),
-        std=round(float(std_val if std_val is not None else 0.0), 4),
-        min=round(float(min_val if min_val is not None else 0.0), 4),
-        max=round(float(max_val if max_val is not None else 0.0), 4),
-        skew=round(float(skew_val if skew_val is not None else 0.0), 4),
-        null_count=int(null_count),
+        mean=round(_to_float(mean_val), 4),
+        median=round(_to_float(median_val), 4),
+        std=round(std_num, 4),
+        min=round(_to_float(min_val), 4),
+        max=round(_to_float(max_val), 4),
+        skew=round(_to_float(skew_val), 4),
+        null_count=null_count,
     )
