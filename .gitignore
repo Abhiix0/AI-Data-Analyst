@@ -41,8 +41,15 @@ outputs/reports/*.md
 
 # Node & Next.js
 node_modules/
+**/node_modules/
+apps/web/node_modules/
 .next/
+**/.next/
+apps/web/.next/
 out/
+apps/web/out/
+.turbo/
+apps/web/.turbo/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
