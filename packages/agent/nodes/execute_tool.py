@@ -20,6 +20,14 @@ def execute_tool_node(state: AgentState) -> AgentState:
     tool_name = tool_call.tool_name
     args = tool_call.arguments or {}
 
+    # Tool-call deduplication check
+    for prev_call in state.executed_tool_calls:
+        if prev_call.tool_name == tool_name and prev_call.arguments == args and prev_call.status in ("success", "cached"):
+            tool_call.status = "cached"
+            state.executed_tool_calls.append(tool_call)
+            state.pending_tool_call = None
+            return state
+
     try:
         raw_result = registry.execute(
             name=tool_name,

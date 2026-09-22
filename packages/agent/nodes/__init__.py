@@ -7,6 +7,7 @@ from packages.agent.nodes.execute_tool import execute_tool_node
 from packages.agent.nodes.inspect_result import inspect_result_node
 from packages.agent.nodes.synthesize_finding import synthesize_finding_node
 from packages.agent.nodes.validate_evidence import validate_evidence_node
+from packages.agent.nodes.create_followup import create_followup_node
 from packages.agent.nodes.final_response import final_response_node
 
 __all__ = [
@@ -18,5 +19,6 @@ __all__ = [
     "inspect_result_node",
     "synthesize_finding_node",
     "validate_evidence_node",
+    "create_followup_node",
     "final_response_node",
 ]

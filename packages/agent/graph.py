@@ -12,6 +12,7 @@ from packages.agent.nodes.execute_tool import execute_tool_node
 from packages.agent.nodes.inspect_result import inspect_result_node
 from packages.agent.nodes.synthesize_finding import synthesize_finding_node
 from packages.agent.nodes.validate_evidence import validate_evidence_node
+from packages.agent.nodes.create_followup import create_followup_node
 from packages.agent.nodes.final_response import final_response_node
 from packages.shared.llm_provider import BaseLLMProvider, get_llm_provider
 
@@ -23,12 +24,12 @@ def should_continue_tool_execution(state: AgentState) -> str:
     return "synthesize_finding"
 
 
-def should_retry_validation(state: AgentState) -> str:
-    """Route: determine if evidence validation passed or if re-synthesis is allowed."""
-    if state.validation_passed:
-        return "final_response"
-    if state.validation_attempts < 2:
+def route_after_validation(state: AgentState) -> str:
+    """Route: determine if evidence validation passed, need follow-up, or retry synthesis."""
+    if not state.validation_passed and state.validation_attempts < 2:
         return "synthesize_finding"
+    if state.validation_passed and state.current_step_index < len(state.plan_steps) and state.iteration_count < state.max_iterations:
+        return "select_tool"
     return "final_response"
 
 
@@ -47,6 +48,7 @@ def build_analytical_graph(llm: Optional[BaseLLMProvider] = None) -> StateGraph:
     workflow.add_node("inspect_result", inspect_result_node)
     workflow.add_node("synthesize_finding", lambda state: synthesize_finding_node(state, llm=provider))
     workflow.add_node("validate_evidence", validate_evidence_node)
+    workflow.add_node("create_followup", lambda state: create_followup_node(state, llm=provider))
     workflow.add_node("final_response", final_response_node)
 
     # Add Edges
@@ -68,12 +70,14 @@ def build_analytical_graph(llm: Optional[BaseLLMProvider] = None) -> StateGraph:
     )
 
     workflow.add_edge("synthesize_finding", "validate_evidence")
+    workflow.add_edge("validate_evidence", "create_followup")
 
-    # Conditional routing for evidence validation hard gate
+    # Conditional routing after validation and followup
     workflow.add_conditional_edges(
-        "validate_evidence",
-        should_retry_validation,
+        "create_followup",
+        route_after_validation,
         {
+            "select_tool": "select_tool",
             "synthesize_finding": "synthesize_finding",
             "final_response": "final_response",
         },
