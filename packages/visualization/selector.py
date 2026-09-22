@@ -2,6 +2,7 @@
 from __future__ import annotations
 from typing import Any, Dict, List, Optional
 import polars as pl
+import pandas as pd
 
 from packages.visualization.models import ChartSpec
 
@@ -97,8 +98,26 @@ def generate_chart_specs_from_df(df: pl.DataFrame, max_charts: int = 8) -> List[
     return charts[:max_charts]
 
 
-def generate_chart_specs_from_profile(profile: Dict[str, Any], df: Optional[pl.DataFrame] = None) -> List[Dict[str, Any]]:
+def generate_chart_specs_from_profile(arg1: Any = None, arg2: Any = None) -> List[Dict[str, Any]]:
     """Legacy backward-compatible bridge for orchestrator and legacy dashboard."""
+    df: Optional[pl.DataFrame] = None
+    profile: Dict[str, Any] = {}
+
+    if isinstance(arg1, pd.DataFrame):
+        df = pl.from_pandas(arg1)
+        if isinstance(arg2, dict):
+            profile = arg2
+    elif isinstance(arg1, pl.DataFrame):
+        df = arg1
+        if isinstance(arg2, dict):
+            profile = arg2
+    elif isinstance(arg1, dict):
+        profile = arg1
+        if isinstance(arg2, pd.DataFrame):
+            df = pl.from_pandas(arg2)
+        elif isinstance(arg2, pl.DataFrame):
+            df = arg2
+
     if df is not None:
         specs = generate_chart_specs_from_df(df)
         return [spec.model_dump() for spec in specs]

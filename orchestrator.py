@@ -14,8 +14,7 @@ from packages.ingestion.excel_loader import load_excel
 from packages.ingestion.kaggle_loader import load_kaggle
 from packages.analytics.tools import generate_profile
 from packages.visualization.selector import generate_chart_specs_from_profile as run_visualization
-from packages.legacy.agents.insight_agent import run as run_insights
-from packages.legacy.agents.recommendation_agent import run as run_recommendations
+from packages.analytics.briefing import generate_briefing
 from packages.legacy.agents.report_agent import run as run_report
 import polars as pl
 
@@ -85,11 +84,14 @@ def run_pipeline(source: str, progress_callback=None, model: str = "llama-3.1-8b
     _progress(2, "Generating visualizations...")
     ctx.chart_paths = _safe_run(ctx, "Visualization", run_visualization, df, ctx.profile) or []
 
-    _progress(3, "Generating AI insights...")
-    ctx.insights = _safe_run(ctx, "Insights", run_insights, ctx, model=model) or ["Analysis complete."]
-
-    _progress(4, "Generating recommendations...")
-    ctx.recommendations = _safe_run(ctx, "Recommendations", run_recommendations, ctx, model=model) or []
+    _progress(3, "Generating AI insights and briefing...")
+    briefing = _safe_run(ctx, "Briefing", generate_briefing, pl.from_pandas(df))
+    if briefing:
+        ctx.insights = [f.claim for f in briefing.findings] or ["Analysis complete."]
+        ctx.recommendations = briefing.recommendations
+    else:
+        ctx.insights = ["Analysis complete."]
+        ctx.recommendations = ["Dataset processed."]
 
     _progress(5, "Writing report...")
     ctx.report_path = _safe_run(ctx, "Report", run_report, ctx)
