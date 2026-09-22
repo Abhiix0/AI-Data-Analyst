@@ -4,13 +4,14 @@ import uuid
 from datetime import datetime
 from typing import List, Optional, TYPE_CHECKING
 from sqlalchemy import DateTime, ForeignKey, String
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from apps.api.app.models.base import Base, utc_now, JSON_TYPE
 
 if TYPE_CHECKING:
     from apps.api.app.models.dataset_version import DatasetVersion
     from apps.api.app.models.finding import Finding
+    from apps.api.app.models.investigation import Investigation
     from apps.api.app.models.report import Report
     from apps.api.app.models.conversation_turn import ConversationTurn
 
@@ -57,6 +58,11 @@ class AnalysisRun(Base):
     )
     findings: Mapped[List[Finding]] = relationship(
         "Finding",
+        back_populates="run",
+        cascade="all, delete-orphan",
+    )
+    investigations: Mapped[List[Investigation]] = relationship(
+        "Investigation",
         back_populates="run",
         cascade="all, delete-orphan",
     )

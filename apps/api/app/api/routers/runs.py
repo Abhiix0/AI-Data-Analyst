@@ -298,3 +298,99 @@ def get_chat_history(
         )
         for t in turns
     ]
+
+
+class RunFindingItemResponse(BaseModel):
+    id: str
+    run_id: str
+    claim: str
+    evidence_json: List[Dict[str, Any]]
+    evidence_strength: str
+    source_columns: List[str]
+    query: Optional[str] = None
+    is_pinned: bool
+    user_notes: Optional[str] = None
+    parent_finding_id: Optional[str] = None
+    created_at: datetime
+
+
+@runs_router.get("/{run_id}/findings", response_model=List[RunFindingItemResponse])
+def get_run_findings(
+    run_id: str,
+    is_pinned: Optional[bool] = None,
+    strength: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """List all findings for a given analysis run with optional filtering."""
+    uid = _parse_uuid(run_id)
+    if not uid:
+        return []
+
+    query = db.query(DBFinding).filter(DBFinding.run_id == uid)
+    if is_pinned is not None:
+        query = query.filter(DBFinding.is_pinned == is_pinned)
+    if strength:
+        query = query.filter(DBFinding.evidence_strength == strength)
+
+    findings = query.order_by(DBFinding.created_at.desc()).all()
+    return [
+        RunFindingItemResponse(
+            id=str(f.id),
+            run_id=str(f.run_id),
+            claim=f.claim,
+            evidence_json=f.evidence_json or [],
+            evidence_strength=f.evidence_strength,
+            source_columns=f.source_columns or [],
+            query=f.query,
+            is_pinned=f.is_pinned,
+            user_notes=f.user_notes,
+            parent_finding_id=str(f.parent_finding_id) if f.parent_finding_id else None,
+            created_at=f.created_at,
+        )
+        for f in findings
+    ]
+
+
+class RunInvestigationItemResponse(BaseModel):
+    id: str
+    run_id: str
+    parent_finding_id: Optional[str] = None
+    query: str
+    status: str
+    findings_count: int
+    summary: Optional[str] = None
+    created_at: datetime
+
+
+@runs_router.get("/{run_id}/investigations", response_model=List[RunInvestigationItemResponse])
+def get_run_investigations(
+    run_id: str,
+    db: Session = Depends(get_db),
+):
+    """List all drill-down investigations performed on a run."""
+    from apps.api.app.models import Investigation
+
+    uid = _parse_uuid(run_id)
+    if not uid:
+        return []
+
+    investigations = (
+        db.query(Investigation)
+        .filter(Investigation.run_id == uid)
+        .order_by(Investigation.created_at.desc())
+        .all()
+    )
+    return [
+        RunInvestigationItemResponse(
+            id=str(inv.id),
+            run_id=str(inv.run_id),
+            parent_finding_id=str(inv.parent_finding_id) if inv.parent_finding_id else None,
+            query=inv.query,
+            status=inv.status,
+            findings_count=inv.findings_count,
+            summary=inv.summary,
+            created_at=inv.created_at,
+        )
+        for inv in investigations
+    ]
+

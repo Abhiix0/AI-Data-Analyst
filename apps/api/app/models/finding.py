@@ -2,13 +2,14 @@
 from __future__ import annotations
 import uuid
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
-from sqlalchemy import ForeignKey, String, Text
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy import Boolean, ForeignKey, String, Text
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from apps.api.app.models.base import Base, TimestampMixin, JSON_TYPE
 
 if TYPE_CHECKING:
     from apps.api.app.models.analysis_run import AnalysisRun
+    from apps.api.app.models.investigation import Investigation
 
 
 class Finding(Base, TimestampMixin):
@@ -51,9 +52,33 @@ class Finding(Base, TimestampMixin):
         nullable=True,
         comment="SQL query or tool call expression used to derive this finding",
     )
+    is_pinned: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+        index=True,
+        comment="Whether the user pinned/bookmarked this finding",
+    )
+    user_notes: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+        comment="User notes, reflections, or hypotheses attached to this finding",
+    )
+    parent_finding_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("findings.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="ID of the parent finding if this finding emerged from a drill-down investigation",
+    )
 
     # Relationships
     run: Mapped[AnalysisRun] = relationship(
         "AnalysisRun",
         back_populates="findings",
+    )
+    investigations: Mapped[List[Investigation]] = relationship(
+        "Investigation",
+        back_populates="parent_finding",
+        foreign_keys="[Investigation.parent_finding_id]",
     )

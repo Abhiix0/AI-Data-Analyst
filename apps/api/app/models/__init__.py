@@ -5,6 +5,7 @@ from apps.api.app.models.dataset import Dataset
 from apps.api.app.models.dataset_version import DatasetVersion
 from apps.api.app.models.analysis_run import AnalysisRun
 from apps.api.app.models.finding import Finding
+from apps.api.app.models.investigation import Investigation
 from apps.api.app.models.report import Report
 from apps.api.app.models.conversation_turn import ConversationTurn
 
@@ -17,6 +18,7 @@ __all__ = [
     "DatasetVersion",
     "AnalysisRun",
     "Finding",
+    "Investigation",
     "Report",
     "ConversationTurn",
 ]
