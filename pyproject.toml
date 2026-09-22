@@ -43,3 +43,7 @@ extraPaths = [
     "packages/sql",
     "packages/visualization",
 ]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
