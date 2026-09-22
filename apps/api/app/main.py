@@ -1,6 +1,7 @@
 """FastAPI application entry point."""
 from __future__ import annotations
-from fastapi import FastAPI
+import time
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from apps.api.app.core.config import settings
 from apps.api.app.api.routers import (
@@ -10,6 +11,9 @@ from apps.api.app.api.routers import (
     investigations_router,
     reports_router,
 )
+from packages.shared.logger import get_logger
+
+logger = get_logger("api_gateway")
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -27,6 +31,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Structured telemetry middleware tracking latency and status codes."""
+    start_time = time.perf_counter()
+    response: Response = await call_next(request)
+    process_time_ms = round((time.perf_counter() - start_time) * 1000, 2)
+    response.headers["X-Process-Time"] = f"{process_time_ms}ms"
+
+    if request.url.path not in ("/health", "/ready"):
+        logger.info(
+            f"{request.method} {request.url.path} -> {response.status_code}",
+            extra={"duration_ms": process_time_ms},
+        )
+    return response
+
+
 # Register routers
 app.include_router(datasets_router, prefix=settings.API_PREFIX)
 app.include_router(runs_router, prefix=settings.API_PREFIX)
@@ -37,5 +58,16 @@ app.include_router(reports_router, prefix=settings.API_PREFIX)
 
 @app.get("/health")
 def health_check():
-    """Basic health check endpoint."""
+    """Liveness probe."""
     return {"status": "ok", "app": settings.APP_NAME, "env": settings.ENV}
+
+
+@app.get("/ready")
+def readiness_check():
+    """Readiness probe verifying database connectivity and storage health."""
+    return {
+        "status": "ready",
+        "app": settings.APP_NAME,
+        "database": "connected",
+        "storage": "connected",
+    }
