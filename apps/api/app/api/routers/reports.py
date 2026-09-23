@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from apps.api.app.core.database import get_db
 from apps.api.app.models import AnalysisRun, Dataset, DatasetVersion, Finding as DBFinding, Investigation, Report as DBReport
+from apps.api.app.services.run_resolution import resolve_or_create_run, parse_uuid
 from packages.analytics.briefing import DatasetBriefing
 from packages.analytics.reports import ReportConfig, ReportGenerator
 from packages.shared.storage import get_storage_client
@@ -17,12 +18,7 @@ reports_router = APIRouter(prefix="", tags=["Reports"])
 
 
 def _parse_uuid(val: Any) -> Optional[uuid.UUID]:
-    if isinstance(val, uuid.UUID):
-        return val
-    try:
-        return uuid.UUID(str(val))
-    except Exception:
-        return None
+    return parse_uuid(val)
 
 
 class GenerateReportRequest(BaseModel):
@@ -60,13 +56,7 @@ def generate_run_report(
     db: Session = Depends(get_db),
 ):
     """Generate a comprehensive analytical report in Markdown and HTML and save to storage."""
-    uid = _parse_uuid(run_id)
-    run = db.query(AnalysisRun).filter(AnalysisRun.id == uid).first() if uid else None
-    if not run:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"AnalysisRun with ID '{run_id}' not found.",
-        )
+    run = resolve_or_create_run(db, run_id)
 
     version = db.query(DatasetVersion).filter(DatasetVersion.id == run.dataset_version_id).first()
     dataset = db.query(Dataset).filter(Dataset.id == version.dataset_id).first() if version else None
@@ -173,11 +163,13 @@ def list_run_reports(
     db: Session = Depends(get_db),
 ):
     """List all generated reports for a run."""
-    uid = _parse_uuid(run_id)
-    if not uid:
+    try:
+        run = resolve_or_create_run(db, run_id)
+        run_uid = run.id
+    except HTTPException:
         return []
 
-    reports = db.query(DBReport).filter(DBReport.run_id == uid).order_by(DBReport.created_at.desc()).all()
+    reports = db.query(DBReport).filter(DBReport.run_id == run_uid).order_by(DBReport.created_at.desc()).all()
     return [
         ReportItemResponse(
             id=str(r.id),

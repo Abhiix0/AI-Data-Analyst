@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from apps.api.app.core.database import get_db
 from apps.api.app.models import AnalysisRun, DatasetVersion, Finding as DBFinding, Investigation
+from apps.api.app.services.run_resolution import resolve_parquet_path
 from packages.agent.graph import run_analytical_agent
 
 findings_router = APIRouter(prefix="/findings", tags=["Findings & Drill-downs"])
@@ -154,6 +155,7 @@ def investigate_finding(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Dataset storage path not found for this finding.",
         )
+    parquet_path = resolve_parquet_path(version.storage_path)
 
     # Construct targeted drill-down question
     cols_str = ", ".join(finding.source_columns) if finding.source_columns else "related variables"
@@ -165,7 +167,7 @@ def investigate_finding(
     # Execute LangGraph analytical agent
     state = run_analytical_agent(
         question=investigation_query,
-        parquet_path=version.storage_path,
+        parquet_path=parquet_path,
         dataset_id=str(run.id),
     )
 

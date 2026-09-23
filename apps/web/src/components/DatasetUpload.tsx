@@ -30,8 +30,10 @@ export const DatasetUpload: React.FC<DatasetUploadProps> = ({
 
     try {
       const res = await uploadDataset(file);
-      setUploadSuccess(`Successfully ingested "${file.name}" with ${res.row_count.toLocaleString()} rows and ${res.col_count} columns.`);
-      onDatasetUploaded(res.dataset_id, file.name);
+      const rowCount = res.latest_version?.row_count ?? 0;
+      const colCount = res.latest_version?.col_count ?? 0;
+      setUploadSuccess(`Successfully ingested "${file.name}" with ${rowCount.toLocaleString()} rows and ${colCount} columns.`);
+      onDatasetUploaded(res.id, file.name);
     } catch (err: any) {
       setUploadError(err.message || "Failed to upload dataset.");
     } finally {

@@ -39,6 +39,10 @@ class StorageClient(abc.ABC):
         """Delete object at key if it exists."""
         pass
 
+    def get_local_path(self, key: str) -> Optional[str]:
+        """Return absolute local filesystem path if available locally, else None."""
+        return None
+
 
 class LocalDiskStorageClient(StorageClient):
     """Local filesystem storage client for development and testing."""
@@ -52,6 +56,10 @@ class LocalDiskStorageClient(StorageClient):
         clean_key = key.lstrip("/").replace("\\", "/")
         path = Path(self.base_dir) / clean_key
         return path
+
+    def get_local_path(self, key: str) -> Optional[str]:
+        """Return absolute local filesystem path for key."""
+        return str(self._get_path(key))
 
     def upload_bytes(
         self,

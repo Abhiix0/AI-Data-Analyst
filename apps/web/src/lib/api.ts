@@ -97,12 +97,19 @@ export async function checkBackendHealth(): Promise<boolean> {
   }
 }
 
-export async function uploadDataset(file: File): Promise<{ dataset_id: string; version_id: string; row_count: number; col_count: number }> {
+export interface DatasetResponse {
+  id: string;
+  name: string;
+  created_at: string;
+  latest_version?: DatasetVersion | null;
+}
+
+export async function uploadDataset(file: File): Promise<DatasetResponse> {
   try {
     const formData = new FormData();
     formData.append("file", file);
 
-    const res = await fetch(`${API_BASE}/datasets/upload`, {
+    const res = await fetch(`${API_BASE}/datasets`, {
       method: "POST",
       body: formData,
     });

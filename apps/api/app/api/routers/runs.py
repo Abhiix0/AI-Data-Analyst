@@ -15,6 +15,7 @@ from apps.api.app.models import (
     Finding as DBFinding,
     ConversationTurn,
 )
+from apps.api.app.services.run_resolution import resolve_or_create_run, parse_uuid, resolve_parquet_path
 from packages.agent.graph import run_analytical_agent
 from packages.shared.storage import get_storage_client
 
@@ -66,15 +67,6 @@ class ChatTurnResponse(BaseModel):
     created_at: datetime
 
 
-def _parse_uuid(val: Any) -> Optional[uuid.UUID]:
-    if isinstance(val, uuid.UUID):
-        return val
-    try:
-        return uuid.UUID(str(val))
-    except Exception:
-        return None
-
-
 @runs_router.post("/{run_id}/ask", response_model=AskQuestionResponse)
 def ask_question_on_run(
     run_id: str,
@@ -82,53 +74,29 @@ def ask_question_on_run(
     db: Session = Depends(get_db),
 ):
     """Execute LangGraph analytical agent with hard evidence verification over a run's dataset."""
-    uid = _parse_uuid(run_id)
-    run = db.query(AnalysisRun).filter(AnalysisRun.id == uid).first() if uid else None
-    
-    parquet_path = None
-    if run:
-        version = db.query(DatasetVersion).filter(DatasetVersion.id == run.dataset_version_id).first()
-        if version:
-            parquet_path = version.storage_path
-
-    # If run_id is actually a dataset_id
-    if not parquet_path and uid:
-        dataset = db.query(Dataset).filter(Dataset.id == uid).first()
-        if dataset:
-            version = db.query(DatasetVersion).filter(DatasetVersion.dataset_id == dataset.id).order_by(DatasetVersion.created_at.desc()).first()
-            if version:
-                parquet_path = version.storage_path
-                # Create run record if missing
-                if not run:
-                    run = AnalysisRun(
-                        id=uuid.uuid4(),
-                        dataset_version_id=version.id,
-                        status="COMPLETED",
-                        profile_json={},
-                    )
-                    db.add(run)
-                    db.commit()
-
-    if not parquet_path:
+    run = resolve_or_create_run(db, run_id)
+    version = db.query(DatasetVersion).filter(DatasetVersion.id == run.dataset_version_id).first()
+    if not version or not version.storage_path:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Run or Dataset with ID '{run_id}' not found.",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Dataset storage path not found for this run.",
         )
+    parquet_path = resolve_parquet_path(version.storage_path)
 
     # Execute LangGraph agent
     state = run_analytical_agent(
         question=req.question,
         parquet_path=parquet_path,
-        dataset_id=str(run.id) if run else None,
+        dataset_id=str(run.id),
     )
 
     # Save findings into DB
     for finding in state.synthesized_findings:
         db_finding = DBFinding(
             id=finding.id if isinstance(finding.id, uuid.UUID) else uuid.UUID(str(finding.id)),
-            run_id=run.id if run else (uid or uuid.uuid4()),
+            run_id=run.id,
             claim=finding.claim or finding.title or "Finding",
-            evidence_json=[e.model_dump(mode="json") for e in state.evidence_ledger if str(e.id) in finding.evidence_ids] or [state.evidence_ledger[0].model_dump(mode="json")] if state.evidence_ledger else [],
+            evidence_json=[e.model_dump(mode="json") for e in state.evidence_ledger if str(e.id) in finding.evidence_ids] or ([state.evidence_ledger[0].model_dump(mode="json")] if state.evidence_ledger else []),
             evidence_strength=finding.evidence_strength or "strong",
             source_columns=finding.source_columns or [],
         )
@@ -136,7 +104,7 @@ def ask_question_on_run(
     db.commit()
 
     return AskQuestionResponse(
-        run_id=str(run.id) if run else run_id,
+        run_id=str(run.id),
         question=req.question,
         answer=state.final_response,
         validation_passed=state.validation_passed,
@@ -171,13 +139,7 @@ def send_chat_message_to_run(
     db: Session = Depends(get_db),
 ):
     """Conversational endpoint executing multi-turn grounded agent analysis."""
-    uid = _parse_uuid(run_id)
-    run = db.query(AnalysisRun).filter(AnalysisRun.id == uid).first() if uid else None
-    if not run:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"AnalysisRun with ID '{run_id}' not found.",
-        )
+    run = resolve_or_create_run(db, run_id)
 
     version = db.query(DatasetVersion).filter(DatasetVersion.id == run.dataset_version_id).first()
     if not version or not version.storage_path:
@@ -185,6 +147,7 @@ def send_chat_message_to_run(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Dataset storage path not found for this run.",
         )
+    parquet_path = resolve_parquet_path(version.storage_path)
 
     # Fetch prior turns for context
     past_turns = (
@@ -202,7 +165,7 @@ def send_chat_message_to_run(
     # Execute Agent with conversation history
     state = run_analytical_agent(
         question=req.message,
-        parquet_path=version.storage_path,
+        parquet_path=parquet_path,
         dataset_id=str(run.id),
         conversation_history=conv_history,
     )
@@ -248,7 +211,7 @@ def send_chat_message_to_run(
             id=finding.id if isinstance(finding.id, uuid.UUID) else uuid.UUID(str(finding.id)),
             run_id=run.id,
             claim=finding.claim or finding.title or "Finding",
-            evidence_json=[e.model_dump(mode="json") for e in state.evidence_ledger if str(e.id) in finding.evidence_ids] or [state.evidence_ledger[0].model_dump(mode="json")] if state.evidence_ledger else [],
+            evidence_json=[e.model_dump(mode="json") for e in state.evidence_ledger if str(e.id) in finding.evidence_ids] or ([state.evidence_ledger[0].model_dump(mode="json")] if state.evidence_ledger else []),
             evidence_strength=finding.evidence_strength or "strong",
             source_columns=finding.source_columns or [],
         )
@@ -275,13 +238,15 @@ def get_chat_history(
     db: Session = Depends(get_db),
 ):
     """Retrieve full chronological conversation history for an analysis run."""
-    uid = _parse_uuid(run_id)
-    if not uid:
+    try:
+        run = resolve_or_create_run(db, run_id)
+        run_uid = run.id
+    except HTTPException:
         return []
 
     turns = (
         db.query(ConversationTurn)
-        .filter(ConversationTurn.run_id == uid)
+        .filter(ConversationTurn.run_id == run_uid)
         .order_by(ConversationTurn.turn_index.asc())
         .all()
     )
@@ -322,11 +287,13 @@ def get_run_findings(
     db: Session = Depends(get_db),
 ):
     """List all findings for a given analysis run with optional filtering."""
-    uid = _parse_uuid(run_id)
-    if not uid:
+    try:
+        run = resolve_or_create_run(db, run_id)
+        run_uid = run.id
+    except HTTPException:
         return []
 
-    query = db.query(DBFinding).filter(DBFinding.run_id == uid)
+    query = db.query(DBFinding).filter(DBFinding.run_id == run_uid)
     if is_pinned is not None:
         query = query.filter(DBFinding.is_pinned == is_pinned)
     if strength:
@@ -370,13 +337,15 @@ def get_run_investigations(
     """List all drill-down investigations performed on a run."""
     from apps.api.app.models import Investigation
 
-    uid = _parse_uuid(run_id)
-    if not uid:
+    try:
+        run = resolve_or_create_run(db, run_id)
+        run_uid = run.id
+    except HTTPException:
         return []
 
     investigations = (
         db.query(Investigation)
-        .filter(Investigation.run_id == uid)
+        .filter(Investigation.run_id == run_uid)
         .order_by(Investigation.created_at.desc())
         .all()
     )
