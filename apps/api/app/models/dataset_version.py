@@ -1,7 +1,7 @@
 """DatasetVersion database model."""
 from __future__ import annotations
 import uuid
-from typing import Any, Dict, List, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from sqlalchemy import ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -44,6 +44,11 @@ class DatasetVersion(Base, TimestampMixin):
         JSON_TYPE,
         nullable=False,
         default=dict,
+    )
+    briefing_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+        JSON_TYPE,
+        nullable=True,
+        default=None,
     )
 
     # Relationships

@@ -140,6 +140,19 @@ export async function listDatasets(): Promise<Dataset[]> {
   }
 }
 
+export async function getBriefing(datasetId: string): Promise<DatasetBriefing | null> {
+  try {
+    const res = await fetch(`${API_BASE}/datasets/${datasetId}/briefing`, {
+      method: "GET",
+      headers: { "Accept": "application/json" },
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
 export async function askQuestion(runOrDatasetId: string, question: string): Promise<{
   run_id: string;
   question: string;

@@ -165,3 +165,57 @@ def get_dataset(dataset_id: uuid.UUID, db: Session = Depends(get_db)):
             created_at=latest.created_at,
         ) if latest else None,
     )
+
+
+@router.get("/{dataset_id}/briefing")
+def get_dataset_briefing(dataset_id: str, db: Session = Depends(get_db)):
+    """Retrieve executive briefing for a dataset."""
+    from apps.api.app.services.run_resolution import parse_uuid, resolve_parquet_path
+    from packages.analytics.briefing import generate_briefing
+    import os
+    import polars as pl
+
+    uid = parse_uuid(dataset_id)
+    if not uid:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dataset not found")
+
+    dataset = db.query(Dataset).filter_by(id=uid).first()
+    if not dataset:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dataset not found")
+
+    version = (
+        db.query(DatasetVersion)
+        .filter(DatasetVersion.dataset_id == dataset.id)
+        .order_by(DatasetVersion.created_at.desc())
+        .first()
+    )
+    if not version:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dataset version not found")
+
+    if version.briefing_json:
+        return version.briefing_json
+
+    # Check latest AnalysisRun if briefing exists in profile_json
+    run = (
+        db.query(AnalysisRun)
+        .filter(AnalysisRun.dataset_version_id == version.id)
+        .order_by(AnalysisRun.started_at.desc())
+        .first()
+    )
+    if run and run.profile_json and "briefing" in run.profile_json:
+        version.briefing_json = run.profile_json["briefing"]
+        db.commit()
+        return run.profile_json["briefing"]
+
+    # Compute on the fly as fallback
+    local_path = resolve_parquet_path(version.storage_path)
+    if os.path.exists(local_path):
+        df = pl.read_parquet(local_path)
+        briefing = generate_briefing(df=df, dataset_version_id=version.id, analysis_run_id=run.id if run else None)
+        briefing_dict = briefing.model_dump(mode="json")
+        version.briefing_json = briefing_dict
+        db.commit()
+        return briefing_dict
+
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Briefing not found for this dataset")
+

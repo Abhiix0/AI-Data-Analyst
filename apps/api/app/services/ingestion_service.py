@@ -8,7 +8,8 @@ import polars as pl
 from sqlalchemy.orm import Session
 
 from apps.api.app.core.config import settings
-from apps.api.app.models import User, Dataset, DatasetVersion
+from apps.api.app.models import User, Dataset, DatasetVersion, AnalysisRun, Finding as DBFinding
+from packages.analytics.briefing import generate_briefing
 from packages.ingestion.csv_loader import load_csv
 from packages.ingestion.excel_loader import load_excel
 from packages.ingestion.kaggle_loader import load_kaggle
@@ -70,8 +71,17 @@ class IngestionService:
         d_name = dataset_name or os.path.splitext(filename)[0]
         dataset_id = uuid.uuid4()
         version_id = uuid.uuid4()
+        run_id = uuid.uuid4()
 
-        # 6. Write Parquet to storage
+        # 6. Generate Proactive Dataset Briefing & Findings
+        briefing = generate_briefing(
+            df=df,
+            dataset_version_id=version_id,
+            analysis_run_id=run_id,
+        )
+        briefing_dict = briefing.model_dump(mode="json")
+
+        # 7. Write Parquet to storage
         storage_path = write_parquet_to_storage(
             df=df,
             storage_client=self.storage_client,
@@ -79,7 +89,7 @@ class IngestionService:
             version_id=version_id,
         )
 
-        # 7. Record in Postgres metadata
+        # 8. Record in Postgres metadata
         dataset = Dataset(
             id=dataset_id,
             user_id=user_id or uuid.uuid4(),
@@ -92,11 +102,34 @@ class IngestionService:
             row_count=row_count,
             col_count=col_count,
             schema_json=schema_json,
+            briefing_json=briefing_dict,
         )
         dataset.versions.append(version)
 
+        run = AnalysisRun(
+            id=run_id,
+            dataset_version_id=version_id,
+            status="completed",
+            profile_json={"briefing": briefing_dict},
+        )
+
         if db is not None:
             db.add(dataset)
+            db.add(run)
+
+            # Persist briefing findings
+            for f in briefing.findings:
+                db_finding = DBFinding(
+                    id=f.id if isinstance(f.id, uuid.UUID) else uuid.UUID(str(f.id)),
+                    run_id=run.id,
+                    claim=f.claim or f.title or "Finding",
+                    evidence_json=[e.model_dump(mode="json") for e in f.evidence] or [],
+                    evidence_strength=f.evidence_strength or "strong",
+                    source_columns=f.source_columns or [],
+                    query=f.query,
+                )
+                db.add(db_finding)
+
             db.commit()
             db.refresh(dataset)
             db.refresh(version)
@@ -129,8 +162,17 @@ class IngestionService:
         d_name = dataset_name or dataset_ref.replace("/", "_")
         dataset_id = uuid.uuid4()
         version_id = uuid.uuid4()
+        run_id = uuid.uuid4()
 
-        # 5. Write Parquet to storage
+        # 5. Generate Proactive Dataset Briefing & Findings
+        briefing = generate_briefing(
+            df=df,
+            dataset_version_id=version_id,
+            analysis_run_id=run_id,
+        )
+        briefing_dict = briefing.model_dump(mode="json")
+
+        # 6. Write Parquet to storage
         storage_path = write_parquet_to_storage(
             df=df,
             storage_client=self.storage_client,
@@ -138,7 +180,7 @@ class IngestionService:
             version_id=version_id,
         )
 
-        # 6. Record in Postgres metadata
+        # 7. Record in Postgres metadata
         dataset = Dataset(
             id=dataset_id,
             user_id=user_id or uuid.uuid4(),
@@ -151,11 +193,34 @@ class IngestionService:
             row_count=row_count,
             col_count=col_count,
             schema_json=schema_json,
+            briefing_json=briefing_dict,
         )
         dataset.versions.append(version)
 
+        run = AnalysisRun(
+            id=run_id,
+            dataset_version_id=version_id,
+            status="completed",
+            profile_json={"briefing": briefing_dict},
+        )
+
         if db is not None:
             db.add(dataset)
+            db.add(run)
+
+            # Persist briefing findings
+            for f in briefing.findings:
+                db_finding = DBFinding(
+                    id=f.id if isinstance(f.id, uuid.UUID) else uuid.UUID(str(f.id)),
+                    run_id=run.id,
+                    claim=f.claim or f.title or "Finding",
+                    evidence_json=[e.model_dump(mode="json") for e in f.evidence] or [],
+                    evidence_strength=f.evidence_strength or "strong",
+                    source_columns=f.source_columns or [],
+                    query=f.query,
+                )
+                db.add(db_finding)
+
             db.commit()
             db.refresh(dataset)
             db.refresh(version)

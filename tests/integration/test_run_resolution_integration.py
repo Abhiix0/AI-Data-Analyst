@@ -68,11 +68,29 @@ def test_upload_then_chat_and_report_using_dataset_id_with_no_prior_ask(client, 
     assert upload_data["latest_version"]["row_count"] == 6
     assert upload_data["latest_version"]["col_count"] == 4
 
-    # Verify no AnalysisRun exists yet for this dataset
+    # Verify an initial AnalysisRun was created during ingestion with the briefing
     runs_before = test_db.query(AnalysisRun).all()
-    assert len(runs_before) == 0
+    assert len(runs_before) == 1
+    initial_run = runs_before[0]
+    assert initial_run.profile_json is not None
+    assert "briefing" in initial_run.profile_json
 
-    # 2. Immediately call POST /api/runs/{dataset_id}/chat with NO prior /ask call
+    # 2. Call GET /api/datasets/{dataset_id}/briefing and assert real findings/recommendations
+    briefing_res = client.get(f"/api/datasets/{dataset_id}/briefing")
+    assert briefing_res.status_code == 200, f"Expected 200, got {briefing_res.status_code}: {briefing_res.text}"
+    briefing_data = briefing_res.json()
+    assert briefing_data["title"] == "Dataset Executive Briefing"
+    assert briefing_data["row_count"] == 6
+    assert briefing_data["column_count"] == 4
+    assert len(briefing_data["summary"]) > 0
+    assert isinstance(briefing_data["findings"], list)
+    assert len(briefing_data["findings"]) > 0
+    assert isinstance(briefing_data["recommendations"], list)
+    assert len(briefing_data["recommendations"]) > 0
+    assert isinstance(briefing_data["recommended_charts"], list)
+    assert len(briefing_data["recommended_charts"]) > 0
+
+    # 3. Call POST /api/runs/{dataset_id}/chat with NO prior /ask call
     chat_res = client.post(
         f"/api/runs/{dataset_id}/chat",
         json={"message": "What is the average salary by department?"},
@@ -82,7 +100,7 @@ def test_upload_then_chat_and_report_using_dataset_id_with_no_prior_ask(client, 
     assert chat_data["turn_index"] == 0
     assert len(chat_data["assistant_message"]) > 0
 
-    # Verify that a new AnalysisRun was lazily created in the DB
+    # Verify that chat continued on the existing AnalysisRun
     runs_after_chat = test_db.query(AnalysisRun).all()
     assert len(runs_after_chat) == 1
     created_run = runs_after_chat[0]

@@ -7,7 +7,7 @@ import { BriefingView } from "@/components/BriefingView";
 import { ChatWorkspace } from "@/components/ChatWorkspace";
 import { VisualizationsGallery } from "@/components/VisualizationsGallery";
 import { ReportView } from "@/components/ReportView";
-import { Dataset, DatasetBriefing, listDatasets, checkBackendHealth } from "@/lib/api";
+import { Dataset, DatasetBriefing, listDatasets, getBriefing, checkBackendHealth } from "@/lib/api";
 import { AlertCircle, RefreshCw } from "lucide-react";
 
 export default function Home() {
@@ -19,6 +19,18 @@ export default function Home() {
   const [loadingBriefing, setLoadingBriefing] = useState(false);
   const [backendOnline, setBackendOnline] = useState<boolean | null>(null);
 
+  const loadBriefingForDataset = async (datasetId: string) => {
+    setLoadingBriefing(true);
+    try {
+      const data = await getBriefing(datasetId);
+      setBriefing(data);
+    } catch {
+      setBriefing(null);
+    } finally {
+      setLoadingBriefing(false);
+    }
+  };
+
   const refreshData = async () => {
     const isOnline = await checkBackendHealth();
     setBackendOnline(isOnline);
@@ -28,6 +40,7 @@ export default function Home() {
       if (data.length > 0 && !selectedDataset) {
         setSelectedDataset(data[0]);
         setActiveRunId(data[0].id);
+        loadBriefingForDataset(data[0].id);
       }
     }
   };
@@ -40,6 +53,7 @@ export default function Home() {
   const handleDatasetSelected = (dataset: Dataset) => {
     setSelectedDataset(dataset);
     setActiveRunId(dataset.id);
+    loadBriefingForDataset(dataset.id);
   };
 
   const handleDatasetUploaded = (datasetId: string, name: string) => {
@@ -48,6 +62,7 @@ export default function Home() {
     setSelectedDataset(newDs);
     setActiveRunId(datasetId);
     setActiveTab("briefing");
+    loadBriefingForDataset(datasetId);
   };
 
   const handleDrillDown = (result: any) => {
